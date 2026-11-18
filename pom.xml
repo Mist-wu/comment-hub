@@ -20,6 +20,7 @@
         <module>common</module>
         <module>comment-service</module>
         <module>mock-llm</module>
+        <module>ai-gateway</module>
     </modules>
 
     <properties>
