@@ -1,0 +1,173 @@
+# 一条命令拉起全部服务：docker compose up -d --build
+# 灌数据：docker compose --profile datagen run --rm datagen
+name: comment-hub
+
+x-java: &java
+  restart: unless-stopped
+  volumes:
+    - ./logs:/logs
+  environment: &java-env
+    MYSQL_HOST: mysql
+    REDIS_HOST: redis
+    KAFKA_BOOTSTRAP: kafka:9092
+    AI_GATEWAY_TARGET: ai-gateway:9090
+
+services:
+  mysql:
+    image: mysql:8.4.3
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports: ["3306:3306"]
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - mysql-files:/var/lib/mysql-files
+      - ./deploy/mysql/my.cnf:/etc/mysql/conf.d/hub.cnf:ro
+      - ./common/src/main/resources/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./logs/mysql:/var/log/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      retries: 30
+
+  redis:
+    image: redis:7.4.1-alpine
+    # volatile-lru：只淘汰带 TTL 的缓存 key，不淘汰没有 TTL 的点赞计数
+    command: ["redis-server", "--maxmemory", "1gb", "--maxmemory-policy", "volatile-lru", "--save", "", "--appendonly", "no"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 30
+
+  kafka:
+    image: apache/kafka:3.8.1
+    ports: ["29092:29092"]
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_NUM_PARTITIONS: 6
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 5s
+      retries: 30
+
+  mock-llm:
+    <<: *java
+    build: { context: ., target: mock-llm }
+    ports: ["8000:8000"]
+    environment:
+      JAVA_OPTS: -Xmx256m -XX:+UseG1GC -Xlog:gc*:file=/logs/gc-mock-llm.log:time,uptime:filecount=3,filesize=10m
+      LOGGING_FILE_NAME: /logs/mock-llm.log
+
+  ai-gateway:
+    <<: *java
+    build: { context: ., target: ai-gateway }
+    ports: ["8081:8081", "9090:9090"]
+    environment:
+      <<: *java-env
+      JAVA_OPTS: -Xmx512m -XX:+UseG1GC -Xlog:gc*:file=/logs/gc-ai-gateway.log:time,uptime:filecount=3,filesize=10m
+      LOGGING_FILE_NAME: /logs/ai-gateway.log
+      # 默认打 mock-llm；跑真模型小样本时在 .env 里设 LLM_PROVIDER=deepseek 等，见 docs/cost.md
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://mock-llm:8000}
+      LLM_MODEL: ${LLM_MODEL:-mock-chat}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_PRICE_INPUT: ${LLM_PRICE_INPUT:-0}
+      LLM_PRICE_CACHE_HIT: ${LLM_PRICE_CACHE_HIT:-0}
+      LLM_PRICE_OUTPUT: ${LLM_PRICE_OUTPUT:-0}
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      mock-llm: { condition: service_started }
+
+  comment-service:
+    <<: *java
+    build: { context: ., target: comment-service }
+    ports: ["8080:8080"]
+    environment:
+      <<: *java-env
+      JAVA_OPTS: -Xmx1g -XX:+UseG1GC -Xlog:gc*:file=/logs/gc-comment-service.log:time,uptime:filecount=5,filesize=20m
+      LOGGING_FILE_NAME: /logs/comment-service.log
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  consumer:
+    <<: *java
+    build: { context: ., target: consumer }
+    ports: ["8082:8082"]
+    environment:
+      <<: *java-env
+      JAVA_OPTS: -Xmx512m -XX:+UseG1GC -Xlog:gc*:file=/logs/gc-consumer.log:time,uptime:filecount=3,filesize=10m
+      LOGGING_FILE_NAME: /logs/consumer.log
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      kafka: { condition: service_healthy }
+
+  datagen:
+    build: { context: ., target: datagen }
+    profiles: ["datagen"]
+    volumes:
+      - mysql-files:/var/lib/mysql-files
+    environment:
+      JAVA_OPTS: -Xmx2g
+    # 默认规模；小规模试跑：docker compose --profile datagen run --rm datagen --videos 1000 --comments 200000 --likes 1000000
+    entrypoint: ["sh", "-c", "exec java $$JAVA_OPTS -jar /app/app.jar --jdbc 'jdbc:mysql://mysql:3306/comment_hub?useSSL=false&allowPublicKeyRetrieval=true' \"$$@\"", "--"]
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  # ---------- 监控 ----------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports: ["9095:9090"]
+    volumes:
+      - ./deploy/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command: ["--config.file=/etc/prometheus/prometheus.yml", "--storage.tsdb.retention.time=7d"]
+
+  grafana:
+    image: grafana/grafana:11.2.2
+    ports: ["3000:3000"]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+    volumes:
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+
+  mysqld-exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    command: ["--mysqld.address=mysql:3306", "--mysqld.username=root"]
+    environment:
+      MYSQLD_EXPORTER_PASSWORD: root
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.62.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    command: ["--kafka.server=kafka:9092"]
+    restart: unless-stopped
+    depends_on:
+      kafka: { condition: service_healthy }
+
+volumes:
+  mysql-data:
+  mysql-files:

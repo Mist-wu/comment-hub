@@ -13,3 +13,6 @@ build/
 .vscode/
 *.iml
 .DS_Store
+
+# 运行产物
+logs/
