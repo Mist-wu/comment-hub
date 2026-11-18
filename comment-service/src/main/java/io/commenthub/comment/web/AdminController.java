@@ -5,6 +5,7 @@ import io.commenthub.comment.cache.PageCache;
 import io.commenthub.comment.config.Toggles;
 import io.commenthub.comment.service.HotRankJob;
 import io.commenthub.comment.service.LikeReconciler;
+import io.commenthub.comment.service.VideoBloom;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -18,13 +19,22 @@ public class AdminController {
     private final HotRankJob hotRankJob;
     private final LikeReconciler reconciler;
     private final PageCache pageCache;
+    private final VideoBloom bloom;
 
-    public AdminController(Toggles toggles, ObjectMapper om, HotRankJob hotRankJob, LikeReconciler reconciler, PageCache pageCache) {
+    public AdminController(Toggles toggles, ObjectMapper om, HotRankJob hotRankJob, LikeReconciler reconciler, PageCache pageCache,
+                           VideoBloom bloom) {
         this.toggles = toggles;
         this.om = om;
         this.hotRankJob = hotRankJob;
         this.reconciler = reconciler;
         this.pageCache = pageCache;
+        this.bloom = bloom;
+    }
+
+    /** 灌完数据后调一次，不用等定时重建 */
+    @PostMapping("/bloom/rebuild")
+    public Map<String, Object> rebuildBloom() {
+        return Map.of("videos", bloom.rebuild());
     }
 
     @GetMapping("/toggles")
