@@ -1,0 +1,15 @@
+# 密钥
+.env
+
+# Java / Gradle / Maven
+target/
+build/
+.gradle/
+*.class
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.DS_Store
