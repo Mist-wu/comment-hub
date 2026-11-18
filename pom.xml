@@ -21,6 +21,7 @@
         <module>comment-service</module>
         <module>mock-llm</module>
         <module>ai-gateway</module>
+        <module>consumer</module>
     </modules>
 
     <properties>
