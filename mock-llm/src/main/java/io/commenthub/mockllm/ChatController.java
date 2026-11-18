@@ -3,6 +3,9 @@ package io.commenthub.mockllm;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.micrometer.core.instrument.MeterRegistry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 @RestController
 public class ChatController {
+    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     private final FaultConfig cfg;
     private final ObjectMapper om;
     private final MeterRegistry meters;
@@ -27,7 +31,17 @@ public class ChatController {
     }
 
     @PostMapping("/v1/chat/completions")
-    public ResponseEntity<?> chat(@RequestBody JsonNode body) throws InterruptedException {
+    public ResponseEntity<?> chat(@RequestBody JsonNode body,
+                                  @RequestHeader(value = "X-Trace-Id", required = false) String traceId) throws InterruptedException {
+        if (traceId != null) MDC.put("traceId", traceId);
+        try {
+            return handle(body);
+        } finally {
+            MDC.remove("traceId");
+        }
+    }
+
+    private ResponseEntity<?> handle(JsonNode body) throws InterruptedException {
         ThreadLocalRandom r = ThreadLocalRandom.current();
         if (r.nextDouble() < cfg.timeoutRate) {
             meters.counter("mockllm.requests", "outcome", "hang").increment();
@@ -57,6 +71,7 @@ public class ChatController {
             content = "好的，以下是审核结果：" + content.substring(0, content.length() / 2);
         }
         meters.counter("mockllm.requests", "outcome", "ok").increment();
+        log.info("chat ok task={} chars={}", user.contains("<comments>") ? "summarize" : "moderate", prompt.length());
 
         int in = FakeModel.tokens(prompt.toString());
         int out = FakeModel.tokens(content);

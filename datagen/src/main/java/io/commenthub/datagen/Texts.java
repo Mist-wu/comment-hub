@@ -22,6 +22,13 @@ public final class Texts {
 
     private Texts() {}
 
+    /** 历史评论视为已审核过：辱骂 3（拒绝，不展示），引流 2（待复核），其余 1（通过）。 */
+    public static int status(String text) {
+        for (String b : BAD) if (b.equals(text)) return 3;
+        for (String a : AD) if (a.equals(text)) return 2;
+        return 1;
+    }
+
     public static String comment(RandomGenerator r) {
         double x = r.nextDouble();
         if (x < 0.03) return BAD[r.nextInt(BAD.length)];

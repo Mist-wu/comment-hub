@@ -7,6 +7,8 @@ import io.commenthub.comment.mapper.VideoMapper;
 import io.commenthub.common.event.CommentCreated;
 import io.commenthub.common.event.Topics;
 import io.commenthub.common.trace.Trace;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -19,6 +21,7 @@ import java.time.temporal.ChronoUnit;
  */
 @Service
 public class CommentWriteService {
+    private static final Logger log = LoggerFactory.getLogger(CommentWriteService.class);
     private final CommentMapper comments;
     private final VideoMapper videos;
     private final EventPublisher publisher;
@@ -40,8 +43,10 @@ public class CommentWriteService {
         c.setCreatedAt(LocalDateTime.now(ZoneOffset.UTC).truncatedTo(ChronoUnit.MILLIS));
         comments.insert(c);
         CommentView v = CommentView.of(c);
+        String eventId = Trace.randomEventId();
         publisher.publish(Topics.COMMENT_CREATED, String.valueOf(videoId),
-                new CommentCreated(Trace.randomEventId(), v.id(), videoId, userId, content, v.createdAt()));
+                new CommentCreated(eventId, v.id(), videoId, userId, content, v.createdAt()));
+        log.info("comment posted id={} video={} event={}", v.id(), videoId, eventId);
         return v;
     }
 }

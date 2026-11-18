@@ -105,7 +105,7 @@ public final class DataGen {
                 // ID 和时间同序递增，近似真实的自增主键
                 LocalDateTime ts = start.plusNanos((spanMillis * i / comments) * 1_000_000L);
                 String text = Texts.comment(rnd);
-                cw.write(id + "\t" + videoOf[i] + "\t" + (1 + rnd.nextInt(users)) + "\t" + text + "\t" + likeOf[i] + "\t1\t" + TS.format(ts) + "\n");
+                cw.write(id + "\t" + videoOf[i] + "\t" + (1 + rnd.nextInt(users)) + "\t" + text + "\t" + likeOf[i] + "\t" + Texts.status(text) + "\t" + TS.format(ts) + "\n");
                 int k = likeOf[i];
                 if (k > 0) {
                     long base = rnd.nextInt(users);
