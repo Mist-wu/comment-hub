@@ -1,0 +1,65 @@
+server:
+  port: 8080
+  tomcat:
+    threads:
+      max: 200          # 刻意保留平台线程池：复盘 02 演示模型调用不设超时把它占满
+    accept-count: 200
+
+spring:
+  application:
+    name: comment-service
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:3306/comment_hub?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true&rewriteBatchedStatements=true
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
+    hikari:
+      maximum-pool-size: ${DB_POOL:30}
+      connection-timeout: 3000   # 拿不到连接 3 秒就失败，而不是无限排队
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: 6379
+      timeout: 500ms
+      lettuce:
+        pool:
+          enabled: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        linger.ms: 5
+        enable.idempotence: true
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        max.block.ms: 2000
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+hub:
+  ai-gateway:
+    target: ${AI_GATEWAY_TARGET:localhost:9090}
+  hot-rank:
+    videos: 100
+    comments: 1000
+    interval-ms: 60000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+    tags:
+      application: ${spring.application.name}
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{traceId:-}] [%thread] %logger{20} - %msg%n"
