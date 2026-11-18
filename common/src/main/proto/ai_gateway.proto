@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package commenthub.ai.v1;
+
+option java_multiple_files = true;
+option java_package = "io.commenthub.ai.v1";
+option java_outer_classname = "AiGatewayProto";
+
+// ai-gateway 只对内暴露。调用方必须设置 deadline。
+service AiGateway {
+  // 评论审核。模型不可用时网关降级为关键词规则，不会返回错误。
+  rpc Moderate(ModerateRequest) returns (ModerateReply);
+  // 评论区摘要。命中缓存直接返回；未命中时异步生成，本次返回 ready=false。
+  rpc Summarize(SummarizeRequest) returns (SummarizeReply);
+}
+
+message ModerateRequest {
+  int64 comment_id = 1;
+  int64 video_id = 2;
+  string content = 3;
+}
+
+enum Label {
+  LABEL_UNSPECIFIED = 0;
+  PASS = 1;
+  REVIEW = 2;
+  REJECT = 3;
+}
+
+enum Source {
+  SOURCE_UNSPECIFIED = 0;
+  LLM = 1;        // 模型给出
+  RULE = 2;       // 降级：关键词规则
+  CACHE = 3;      // 命中缓存
+}
+
+message ModerateReply {
+  Label label = 1;
+  string reason = 2;
+  double confidence = 3;
+  Source source = 4;
+  // 降级原因：rate_limited / circuit_open / bulkhead_full / timeout / parse_error / upstream_error
+  string degrade_reason = 5;
+}
+
+message SummarizeRequest {
+  int64 video_id = 1;
+  int64 comment_count = 2;
+  repeated string sample_comments = 3;
+}
+
+message SummarizeReply {
+  bool ready = 1;
+  string summary = 2;
+  Source source = 3;
+  string degrade_reason = 4;
+}
