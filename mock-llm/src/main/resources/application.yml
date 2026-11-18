@@ -1,0 +1,19 @@
+server:
+  port: 8000
+  tomcat:
+    threads:
+      max: 50
+spring:
+  application:
+    name: mock-llm
+  threads:
+    virtual:
+      enabled: true   # 注入 10 秒延迟时每个请求都在 sleep，用虚拟线程撑住并发
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  metrics:
+    tags:
+      application: mock-llm
