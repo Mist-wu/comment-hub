@@ -49,6 +49,18 @@ def rows(case, runs):
     return out
 
 
+def prom_rows(case, runs):
+    """服务端指标：每个 (指标, 标签) 取 3 次运行的中位数。"""
+    vals = {}
+    for r in runs:
+        for k, series in (r.get("prom") or {}).items():
+            if not isinstance(series, dict) or "error" in series:
+                continue
+            for label, v in series.items():
+                vals.setdefault((k, label), []).append(v)
+    return [(case, k, label, med(v)) for (k, label), v in sorted(vals.items())]
+
+
 def fmt(x, nd=1):
     return "-" if x is None else f"{x:.{nd}f}"
 
@@ -69,6 +81,19 @@ def main():
     with open(path, "w") as fh:
         fh.write("case\tmetric\tqps\tp50_ms\tp99_ms\terr_pct\truns\n")
         fh.write("\n".join(sorted(existing + new)) + "\n")
+
+    ppath = os.path.join(HERE, "results", "prom.tsv")
+    pexisting = []
+    if os.path.exists(ppath):
+        with open(ppath) as fh:
+            pexisting = [l for l in fh.read().splitlines()[1:] if l and l.split("\t")[0] not in cases]
+    pnew = []
+    for c in cases:
+        for r in prom_rows(c, load(c)):
+            pnew.append("\t".join([r[0], r[1], r[2], fmt(r[3], 3)]))
+    with open(ppath, "w") as fh:
+        fh.write("case\tquery\tlabels\tmedian\n")
+        fh.write("\n".join(sorted(pexisting + pnew)) + "\n")
 
 
 if __name__ == "__main__":

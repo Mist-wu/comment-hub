@@ -27,6 +27,8 @@ public class Toggles {
     public volatile int localTtlMillis = 1000;
     public volatile LikeMode likeMode = LikeMode.REDIS;
     public volatile CountMode countMode = CountMode.COUNTER;
+    /** 朴素版写：在请求里同步做计数、删缓存、调模型审核；优化版只写库 + 发事件 */
+    public volatile boolean syncWrite = false;
     public volatile boolean summaryEnabled = true;
     /** 摘要 gRPC 调用的 deadline，0 = 不设（复盘 02 用） */
     public volatile int summaryDeadlineMs = 150;
