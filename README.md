@@ -4,7 +4,7 @@
 
 每个优化都先写一个朴素版，再写优化版，两者只差一个运行时开关，用同一份数据压测（3 次取中位数）。下面的数字都来自 [docs/benchmark.md](docs/benchmark.md)。
 
-> 数据是**生成的**：1 万个视频、1000 万条评论、5032 万个点赞。视频热度服从 Zipf(s=1.1)，前 1% 的视频拿走 65% 的评论。生成器见 `datagen/`。
+> 数据是生成的：1 万个视频、1000 万条评论、5032 万个点赞。视频热度服从 Zipf(s=1.1)，前 1% 的视频拿走 65% 的评论。生成器见 `datagen/`。
 
 ```mermaid
 flowchart LR
@@ -19,18 +19,15 @@ flowchart LR
     CO --> R
     CO -->|gRPC| GW
     K -.->|失败 3 次| DLT[[*-dlt 死信]]
-    P[Prometheus + Grafana] -.-> CS & GW & CO & M & R & K
 ```
-
-trace ID 从 HTTP 头开始，依次带过 gRPC metadata 和 Kafka 消息头，用一条 grep 就能把一次发评论在四个服务里的日志串起来。
 
 ## 朴素版 → 优化版
 
 | 场景 | 朴素版 | 优化版 | 结果 |
 |---|---|---|---|
-| 热点视频读评论（Zipf，200 VU） | 直查 MySQL，实时排序和 COUNT | Redis 页缓存 + 热 key 本地缓存 + ZSet + 计数器 + 布隆过滤器 | QPS **250 → 9,680**，P99 2,400 → 52 ms |
-| 点赞风暴（200 VU 点同一条评论） | 一个事务里 INSERT + UPDATE 热点行 | INSERT IGNORE + Redis INCR + Kafka 合并落库 | QPS **1,230 → 6,054**，行锁等待 38,136 → 0 次 |
-| 模型故障（延迟 10 秒 + 50% 错误） | 同步等模型，不设超时 | deadline + 异步摘要 + 舱壁 + 熔断 + 降级 | 读 P99 **18,879 → 5.3 ms**，Tomcat 忙线程 200 → 6 |
+| 热点视频读评论（Zipf，200 VU） | 直查 MySQL，实时排序和 COUNT | Redis 页缓存 + 热 key 本地缓存 + ZSet + 计数器 + 布隆过滤器 | QPS 250 → 9,680，P99 2,400 → 52 ms |
+| 点赞风暴（200 VU 点同一条评论） | 一个事务里 INSERT + UPDATE 热点行 | INSERT IGNORE + Redis INCR + Kafka 合并落库 | QPS 1,230 → 6,054，行锁等待 38,136 → 0 次 |
+| 模型故障（延迟 10 秒 + 50% 错误） | 同步等模型，不设超时 | deadline + 异步摘要 + 舱壁 + 熔断 + 降级 | 读 P99 18,879 → 5.3 ms，Tomcat 忙线程 200 → 6 |
 | 深分页（151 万条评论的第 1000 页） | `LIMIT 19980, 20` | 游标 `(created_at, id) < (?, ?)` | P99 174 → 3.8 ms |
 | 慢 SQL：最热榜重建 | filesort 162 万行 | 覆盖索引 `(video_id, like_count, id, status)` | 单条 SQL 1,309 → 0.245 ms |
 | 缓存击穿（热点 key 每 10 秒过期） | 直接回源 | Redis 互斥锁 / 逻辑过期 | 60 秒回源 2,187 → 6 次，QPS 2,127 → 14,519 |
@@ -38,9 +35,9 @@ trace ID 从 HTTP 头开始，依次带过 gRPC metadata 和 Kafka 消息头，�
 
 ## 三个结论
 
-1. **热点问题的关键是别让请求走到数据库。** 热点读朴素版的 P99 是 2.4 秒，连接池等待 170。挡在数据库前面的有：页缓存、热 key 本地缓存、互斥锁、布隆过滤器。加上之后 QPS 提高 38.7 倍，MySQL QPS 从“每个请求都要查”降到平均 2,107，而这时总 QPS 已经接近 1 万。击穿实验里，60 秒内同一个 key 回源了 2,187 次，加锁后只剩 6 次。
-2. **模型调用必须有超时，而且超时要层层传递。** 不设超时时，一个可选的摘要功能就让 Tomcat 200 个线程全部卡住，连不调模型的接口和监控端点都挂了（[复盘 02](docs/incidents/02-no-timeout.md)）。加了 deadline、异步摘要、舱壁和熔断之后，模型故障 90 秒期间，读 P99 一直是 5.3ms。熔断器在故障后 3 秒打开，恢复后 1.3 秒关闭。
-3. **真模型要先关掉思考模式再上线。** 在 540 条样本上测 DeepSeek：
+1. 热点问题的关键是别让请求走到数据库。热点读朴素版的 P99 是 2.4 秒，连接池 pending 峰值 170。在数据库前面加上页缓存、热 key 本地缓存、互斥锁和布隆过滤器之后，QPS 是原来的 38.7 倍，每个读请求平均查 MySQL 的次数从 1.76 次降到 0.22 次。击穿实验里，60 秒内同一个 key 回源了 2,187 次，加锁后只剩 6 次。
+2. 模型调用必须有超时，而且超时要层层传递。不设超时时，一个可选的摘要功能就让 Tomcat 200 个线程全部卡住，连不调模型的接口和监控端点都挂了（[复盘 02](docs/incidents/02-no-timeout.md)）。加了 deadline、异步摘要、舱壁和熔断之后，模型故障 90 秒期间，读 P99 一直是 5.3 ms。熔断器在故障后 3 秒打开，恢复后 1.3 秒关闭。
+3. 真模型审核比关键词规则准，但上线前要先关掉思考模式。在 540 条样本上测 DeepSeek：
    - 边界用例（谐音、变体联系方式、含敏感词的正常评论）上，模型准确率 97.5%，关键词规则只有 35%。
    - 关掉思考模式后，解析失败从 7 降到 0，输出 token 少 55%，费用少 37%。
    - 按高峰价，审核一条评论 0.000575 元。
@@ -49,7 +46,7 @@ trace ID 从 HTTP 头开始，依次带过 gRPC metadata 和 Kafka 消息头，�
 
 ## 运行
 
-需要 Docker（至少 6 核 10G 内存）、k6、JDK 21（只有跑测试才需要）。
+需要 Docker（至少 6 核、10 GB 内存）、k6 和 JDK 21（只有跑测试才需要）。用 Colima 时，仓库要放在 VM 挂载的目录下（默认只挂载家目录）。放在 `/tmp` 下，Prometheus 的配置文件会挂载失败。
 
 ```bash
 cp .env.example .env                                   # 只有真模型评估才需要填 DEEPSEEK_API_KEY
@@ -78,6 +75,8 @@ curl -s -XPOST localhost:8080/api/videos/1/comments -H 'Content-Type: applicatio
 curl -s -XPOST localhost:8080/api/comments/1/like -H 'Content-Type: application/json' -d '{"userId":42}'
 ```
 
+trace ID 从 HTTP 头开始，依次带过 gRPC metadata 和 Kafka 消息头。用一条 grep 就能把一次发评论在四个服务里的日志串起来。
+
 压测和复盘：
 
 ```bash
@@ -89,7 +88,19 @@ scripts/incidents/03-breakdown-pool.sh  # 热点 key 击穿 → 连接池耗尽
 scripts/replay-dlt.sh comment-created   # 把死信重放回原 topic
 ```
 
-测试（单元测试，加上用 Testcontainers 起 MySQL、Redis、Kafka 的集成测试；GitHub Actions 上跑的也是这条命令）：
+真模型评估会调用 DeepSeek，540 条样本约花 0.31 元。先在 `.env` 里填 `DEEPSEEK_API_KEY` 和 `DEEPSEEK_PRICE_*`，再运行：
+
+```bash
+scripts/load-gold.sh                                   # 导入 eval/moderation-gold.tsv
+docker compose --profile eval up -d ai-gateway-eval
+curl -XPOST 'localhost:8091/admin/eval/moderation?source=sample'
+curl -XPOST 'localhost:8091/admin/eval/moderation?source=hard'
+curl localhost:8091/admin/cost                         # 账本汇总
+```
+
+结果的解读见 [docs/cost.md](docs/cost.md)。
+
+测试包括单元测试和集成测试。集成测试用 Testcontainers 起 MySQL、Redis 和 Kafka。GitHub Actions 跑的也是这条命令：
 
 ```bash
 mvn -Pit verify
@@ -104,4 +115,4 @@ mvn -Pit verify
 
 ## 技术栈
 
-Java 21 · Spring Boot 3.3 · MyBatis-Plus · MySQL 8.4 · Redis 7.4 · Caffeine · Kafka 3.8（KRaft）· gRPC · Resilience4j · Micrometer + Prometheus + Grafana · JUnit 5 + Mockito + Testcontainers · k6 · Docker Compose
+Java 21 · Spring Boot 3.3 · MyBatis-Plus · MySQL 8.4 · Redis 7.4 · Caffeine · Kafka 3.8 (KRaft) · gRPC · Resilience4j · Micrometer + Prometheus + Grafana · JUnit 5 + Mockito + Testcontainers · k6 · Docker Compose
