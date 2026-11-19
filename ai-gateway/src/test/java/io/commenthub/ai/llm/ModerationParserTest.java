@@ -29,9 +29,9 @@ class ModerationParserTest {
         LlmUsage u = LlmUsage.parse(om.valueToTree(java.util.Map.of(
                 "prompt_tokens", 1000, "prompt_cache_hit_tokens", 400, "completion_tokens", 100, "total_tokens", 1100)));
         assertThat(u).isEqualTo(new LlmUsage(600, 400, 100, 1100));
-        LlmProperties p = new LlmProperties("x", "u", "", "m", 2.0, 0.5, 8.0);
+        LlmProperties p = new LlmProperties("x", "u", "", "m", 2.0, 0.5, 8.0, null);
         // 600*2 + 400*0.5 + 100*8 = 2200 百万分之一元
         assertThat(u.costMicroCny(p)).isEqualTo(2200L);
-        assertThat(u.costMicroCny(new LlmProperties("x", "u", "", "m", null, null, null))).isNull();
+        assertThat(u.costMicroCny(new LlmProperties("x", "u", "", "m", null, null, null, null))).isNull();
     }
 }

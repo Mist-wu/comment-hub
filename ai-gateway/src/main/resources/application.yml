@@ -23,6 +23,7 @@ hub:
     base-url: ${LLM_BASE_URL:http://localhost:8000}
     api-key: ${LLM_API_KEY:}
     model: ${LLM_MODEL:mock-chat}
+    disable-thinking: ${LLM_DISABLE_THINKING:false}
     # 单价：元 / 百万 token。mock 记 0；真模型请按官网当前价格填写（见 docs/cost.md）
     price-input-per-m: ${LLM_PRICE_INPUT:0}
     price-cache-hit-per-m: ${LLM_PRICE_CACHE_HIT:0}

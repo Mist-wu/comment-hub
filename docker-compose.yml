@@ -105,6 +105,7 @@ services:
       LLM_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
       LLM_MODEL: ${DEEPSEEK_EVAL_MODEL:-deepseek-flash}
       LLM_API_KEY: ${DEEPSEEK_API_KEY:-}
+      LLM_DISABLE_THINKING: "true"
       # 元 / 百万 token，按官网价格填（docs/cost.md 记录了取值和时段）
       LLM_PRICE_INPUT: ${DEEPSEEK_PRICE_INPUT:-}
       LLM_PRICE_CACHE_HIT: ${DEEPSEEK_PRICE_CACHE_HIT:-}

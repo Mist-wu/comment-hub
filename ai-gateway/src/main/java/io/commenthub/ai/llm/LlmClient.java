@@ -52,6 +52,7 @@ public class LlmClient {
         msgs.addObject().put("role", "system").put("content", system);
         msgs.addObject().put("role", "user").put("content", user);
         if (jsonMode) body.putObject("response_format").put("type", "json_object");
+        if (Boolean.TRUE.equals(props.disableThinking())) body.putObject("thinking").put("type", "disabled");
 
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(props.baseUrl() + "/v1/chat/completions"))
                 .header("Content-Type", "application/json")
