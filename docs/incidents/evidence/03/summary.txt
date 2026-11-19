@@ -1,0 +1,4 @@
+A1-none    pool timeouts=342  lock-wait timeouts(load directly)=0
+B-mutex-old pool timeouts=0  lock-wait timeouts(load directly)=0
+A2-none    pool timeouts=159  lock-wait timeouts(load directly)=0
+C-mutex-new pool timeouts=0  lock-wait timeouts(load directly)=0

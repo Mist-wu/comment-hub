@@ -1,0 +1,6 @@
+Table	Non_unique	Key_name	Seq_in_index	Column_name	Collation	Cardinality	Sub_part	Packed	Null	Index_type	Comment	Index_comment	Visible	Expression
+comment	0	PRIMARY	1	id	A	9670027	NULL	NULL		BTREE			YES	NULL
+comment	1	idx_video_like	1	video_id	A	22333	NULL	NULL		BTREE			YES	NULL
+comment	1	idx_video_like	2	like_count	A	249756	NULL	NULL		BTREE			YES	NULL
+comment	1	idx_video_like	3	id	A	11189278	NULL	NULL		BTREE			YES	NULL
+comment	1	idx_video_like	4	status	A	11189278	NULL	NULL		BTREE			YES	NULL

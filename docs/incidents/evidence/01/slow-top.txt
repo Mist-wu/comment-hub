@@ -1,0 +1,2 @@
+  267    2051.3s  avg_rows_examined=480456 avg_sort_rows=20  SELECT id, video_id, user_id, content, like_count, status, created_at FROM comment WHERE video_id = N AND status <> N AND (created_at < 'N-N
+    3       0.7s  avg_rows_examined=7497 avg_sort_rows=20  SELECT id, video_id, user_id, content, like_count, status, created_at FROM comment WHERE video_id = N AND status <> N ORDER BY created_at DE

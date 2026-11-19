@@ -1,0 +1,2 @@
+   71   1755.8s avg_query_time=24.73s avg_rows_examined=1747603  SELECT id, video_id, user_id, content, like_count, status, created_at FROM comment WHERE video_id = N AND status <> N OR
+    2      7.7s avg_query_time=3.86s avg_rows_examined=1281844  SELECT id, like_count FROM comment WHERE video_id = N AND status <> N ORDER BY like_count DESC, id DESC LIMIT N;

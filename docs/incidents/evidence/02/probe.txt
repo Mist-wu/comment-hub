@@ -1,0 +1,5 @@
+probe comment-count: http=000 time=5.004653s
+probe comment-count: http=000 time=5.002860s
+probe comment-count: http=000 time=5.008061s
+probe comment-count: http=000 time=5.010364s
+probe comment-count: http=000 time=5.000792s
