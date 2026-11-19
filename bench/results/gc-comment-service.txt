@@ -1,0 +1,7 @@
+Cleanup              n=   54 avg=  0.44ms max=   3.18ms
+Full (Heap           n=    2 avg=129.11ms max= 201.12ms
+Remark               n=   54 avg= 22.33ms max= 162.45ms
+Young (Concurrent    n=   54 avg= 20.32ms max= 174.94ms
+Young (Mixed)        n=   54 avg= 23.01ms max= 154.90ms
+Young (Normal)       n= 1788 avg=  8.67ms max= 156.32ms
+Young (Prepare       n=   54 avg= 16.25ms max=  66.73ms
