@@ -121,6 +121,7 @@ services:
     environment:
       <<: *java-env
       JAVA_OPTS: -Xmx1g -XX:+UseG1GC -Xlog:gc*:file=/logs/gc-comment-service.log:time,uptime:filecount=5,filesize=20m
+      DB_POOL: ${DB_POOL:-30}
       SERVER_TOMCAT_MBEANREGISTRY_ENABLED: "true"   # 暴露 tomcat_threads_busy_threads，复盘 02 和场景 4 要看
       LOGGING_FILE_NAME: /logs/comment-service.log
     depends_on:

@@ -136,13 +136,14 @@ public final class DataGen {
                 exec(st, "TRUNCATE TABLE " + t);
             }
             dropIndex(st, "comment", "idx_video_created");
+            dropIndex(st, "comment", "idx_video_like");
             dropIndex(st, "comment_like", "uk_user_comment");
             dropIndex(st, "comment_like", "idx_comment");
             load(st, vf, "video", "(id, title, comment_count, created_at)");
             load(st, cf, "comment", "(id, video_id, user_id, content, like_count, status, created_at)");
             load(st, lf, "comment_like", "(user_id, comment_id, created_at)");
             load(st, gf, "moderation_gold", "(content)");
-            timed(st, "ALTER TABLE comment ADD KEY idx_video_created (video_id, created_at, id)");
+            timed(st, "ALTER TABLE comment ADD KEY idx_video_created (video_id, created_at, id), ADD KEY idx_video_like (video_id, like_count, id, status)");
             timed(st, "ALTER TABLE comment_like ADD UNIQUE KEY uk_user_comment (user_id, comment_id), ADD KEY idx_comment (comment_id)");
             timed(st, "ANALYZE TABLE video, comment, comment_like");
         }
