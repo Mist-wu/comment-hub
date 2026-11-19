@@ -91,6 +91,28 @@ services:
       redis: { condition: service_healthy }
       mock-llm: { condition: service_started }
 
+  # 只用来跑真模型小样本评估（docs/cost.md），压测不经过它：docker compose --profile eval up -d ai-gateway-eval
+  ai-gateway-eval:
+    <<: *java
+    build: { context: ., target: ai-gateway }
+    profiles: ["eval"]
+    ports: ["8091:8081"]
+    environment:
+      <<: *java-env
+      JAVA_OPTS: -Xmx256m
+      LOGGING_FILE_NAME: /logs/ai-gateway-eval.log
+      LLM_PROVIDER: deepseek
+      LLM_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      LLM_MODEL: ${DEEPSEEK_EVAL_MODEL:-deepseek-flash}
+      LLM_API_KEY: ${DEEPSEEK_API_KEY:-}
+      # 元 / 百万 token，按官网价格填（docs/cost.md 记录了取值和时段）
+      LLM_PRICE_INPUT: ${DEEPSEEK_PRICE_INPUT:-}
+      LLM_PRICE_CACHE_HIT: ${DEEPSEEK_PRICE_CACHE_HIT:-}
+      LLM_PRICE_OUTPUT: ${DEEPSEEK_PRICE_OUTPUT:-}
+    depends_on:
+      mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
   comment-service:
     <<: *java
     build: { context: ., target: comment-service }

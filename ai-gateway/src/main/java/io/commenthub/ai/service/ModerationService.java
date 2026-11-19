@@ -10,6 +10,8 @@ import io.commenthub.ai.llm.ModerationParser.Verdict;
 import io.commenthub.ai.llm.Prompts;
 import io.commenthub.ai.v1.ModerateReply;
 import io.commenthub.ai.v1.Source;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -21,7 +23,9 @@ import java.util.Optional;
  */
 @Service
 public class ModerationService {
-    private static final int MAX_TOKENS = 80;
+    private static final Logger log = LoggerFactory.getLogger(ModerationService.class);
+    /** 审核输出是一个小 JSON，200 足够；设成 80 时真模型会被截断（见 docs/cost.md） */
+    static final int MAX_TOKENS = 200;
     private final GuardedLlm guard;
     private final LlmInvoker llm;
     private final Prompts prompts;
@@ -46,6 +50,7 @@ public class ModerationService {
                 var r = llm.invoke("moderate", commentId, prompts.moderateSystem, user, true, MAX_TOKENS, est, timeout);
                 Optional<Verdict> v = ModerationParser.parse(r.content());
                 if (v.isPresent()) return v.get();
+                log.warn("moderation parse failed attempt={} output={}", attempt + 1, r.content());
             }
             return null;
         });

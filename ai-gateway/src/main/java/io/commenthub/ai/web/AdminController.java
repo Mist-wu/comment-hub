@@ -66,7 +66,8 @@ public class AdminController {
 
     /** 用 moderation_gold 里人工标注过的样本评估审核准确率。只在 provider=deepseek 时有意义。 */
     @PostMapping("/eval/moderation")
-    public Map<String, Object> evalModeration(@RequestParam(defaultValue = "500") int limit) {
-        return eval.run(limit);
+    public Map<String, Object> evalModeration(@RequestParam(defaultValue = "sample") String source,
+                                              @RequestParam(defaultValue = "1000") int limit) {
+        return eval.run(source, limit);
     }
 }
