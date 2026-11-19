@@ -71,14 +71,46 @@ COMMIT;
 
 ### 2.4 慢查询
 
-`deploy/mysql/my.cnf` 打开了慢查询日志，阈值 100ms，`log_slow_extra = 1` 会额外记录扫描行数、排序行数等。分析方法：
+`deploy/mysql/my.cnf` 打开了慢查询日志，阈值 100ms；`log_slow_extra = 1` 会额外记录扫描行数、排序行数等。分析方法：
 
 ```bash
-docker compose exec mysql mysqldumpslow -s t -t 10 /var/log/mysql/slow.log
-grep -A3 'Rows_examined: [0-9]\{6,\}' logs/mysql/slow.log | head
+docker compose exec mysql sh -c 'cat /var/log/mysql/slow.log' > slow.log
+# 按 SQL 指纹聚合：次数、总耗时、平均扫描行数
+awk '/^# Query_time/{qt=$3; for(i=1;i<=NF;i++) if($i=="Rows_examined:") re=$(i+1); getline; while($0 ~ /^(SET|use)/) getline;
+     s=$0; gsub(/[0-9]+/,"N",s); n[s]++; t[s]+=qt; r[s]+=re}
+     END{for(s in n) printf "%6d %8.1fs avg_rows=%d  %s\n", n[s], t[s], r[s]/n[s], substr(s,1,120)}' slow.log | sort -k2 -rn | head
 ```
 
-修复的真实慢 SQL 记录在 benchmark.md 的“慢查询”一节和 docs/incidents/01。
+按总耗时排第一的不是请求路径上的 SQL，而是最热榜定时任务 `HotRankJob` 的 `ORDER BY like_count DESC, id DESC LIMIT 1000`：
+
+- 记录了 794 次，平均每次扫描 218 万行；
+- 每分钟跑一次（100 个视频，每次 7–16 秒），一直和前台请求抢 IO。
+
+`idx_video_created` 只能用来按 `video_id` 过滤，排序要对整个视频的全部评论做 filesort。修复办法是加一个覆盖索引：
+
+```sql
+ALTER TABLE comment ADD KEY idx_video_like (video_id, like_count, id, status);
+```
+
+- `(video_id, like_count, id)` 和排序方向一致，倒序扫描读到 1000 行就停；
+- `status` 放进索引是为了覆盖 `status <> 3` 的过滤，不用回表；
+- `id` 是主键，二级索引的叶子节点本来就带着它，这里显式写出来是为了让它排在 `status` 前面，参与排序。
+
+修复后，视频 1（162 万条评论）上这条 SQL 从 1309ms 降到 0.245ms，扫描行数从 162 万降到 1036；整次重建从 16 秒降到 0.4 秒。代价是索引占 314MB，而且点赞数落库时要移动索引项。点赞数是 consumer 合并后批量更新的，这个代价很小。执行计划的前后对比见 `bench/results/slow-sql/explain.md`。
+
+### 2.5 写入的上限在磁盘
+
+`innodb_flush_log_at_trx_commit = 1`、`sync_binlog = 1`，每次提交都要把 redo log 和 binlog 刷盘。在这台机器的 Colima VM 里，单条 INSERT（自动提交）平均 7–17ms，突发写打到每秒 1200–1500 条就到顶了：
+
+- 连接池从 30 加到 100 也没有提升，组提交已经尽力了；
+- 这时 VM 的 iowait 在 28% 左右。
+
+所以写路径的优化目标不是“更快地写评论”，而是两件事：
+
+1. **请求里只做一次提交**：写评论只 INSERT 一行、发一条消息。朴素版同步执行“+评论数、改审核状态”，一次请求三次提交。
+2. **后台不和前台抢 fsync**：consumer 逐条处理时每条事件一次提交，突发写期间 consumer 的提交次数和前台一样多。改成按批合并后，一批（最多 500 条）只开一个事务，提交次数从 4.8 万降到 3 千。
+
+如果要突破这个上限，可以放宽持久性（`innodb_flush_log_at_trx_commit = 2`，崩溃最多丢 1 秒），或者批量插入（先写 Kafka，由 consumer 合并 INSERT，代价是写后读不一致）。本项目都没有做，benchmark.md 记录的是 `= 1` 下的数字。
 
 ## 3. Redis
 
@@ -127,11 +159,19 @@ grep -A3 'Rows_examined: [0-9]\{6,\}' logs/mysql/slow.log | head
 ## 4. Kafka
 
 - 发评论只做两件事：写库、发 `CommentCreated` 后返回。发送失败（broker 不可用、超时）时把事件写进 `event_outbox`，定时重发。仍存在的窗口是“库提交后、发送前进程崩溃”，彻底解决需要把 outbox 写入和评论写入放进同一事务（事务性 outbox），代价是每次发评论多写一行；本项目选择了只在失败时写 outbox，并用对账兜底。
+- 计数、审核、点赞落库都是批量消费：一次最多拉 500 条，去重和业务更新放在同一个事务里，按主键排序更新以避免死锁。审核要调模型，批内用虚拟线程并发调用，并发上限 32，和网关舱壁一致。逐条同步调用时，吞吐约等于 1 / 模型延迟（3 个分区约 7 条/秒），一次突发写就积压了 7.8 万条。
+- 审核的吞吐最终受模型 QPS / token 预算限制。超出预算的部分由网关降级到关键词规则，积压能很快消化完，代价是突发期间大部分评论由规则审核。如果更在意审核质量，可以让 consumer 在网关限流时退避等待，代价是积压时间变长：按 50 QPS 算，12 万条要 40 分钟。
 - 三个关注点（计数、删缓存、审核）拆成三个消费者组：审核依赖模型，可能慢、可能失败，不能拖住计数和删缓存；分开去重也保证了重放时不会因为“计数已经做过”而把审核一起跳过。
 - 幂等：`consumed_event (consumer, event_id)` 主键。去重记录和业务更新在同一个数据库事务里：业务失败回滚时去重记录一起回滚，下次重试还能处理；业务提交后再收到同一事件，`INSERT IGNORE` 返回 0，直接跳过。删缓存本身是幂等操作，不需要去重表。
 - 重试和死信：间隔 1 秒重试 3 次，仍失败投到 `{topic}-dlt`，保留原分区号和异常信息头。`scripts/replay-dlt.sh <topic>` 把死信发回原 topic。
 
-## 5. ai-gateway
+## 5. 日志
+
+所有服务共用 `common/src/main/resources/logback-spring.xml`，控制台和文件 appender 外面各包一层 `AsyncAppender`。
+
+同步 appender 写日志要拿一把锁。突发写压测时，jstack 显示 200 个 Tomcat 线程里有 189 个卡在 `OutputStreamAppender.writeBytes` 上，写接口 P50 从 3ms 涨到 476ms。换成异步 appender 后，队列满了宁可丢日志，也不阻塞请求线程（`neverBlock = true`）。
+
+## 6. ai-gateway
 
 一次模型调用依次经过：
 
