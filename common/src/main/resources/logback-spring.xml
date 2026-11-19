@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  所有服务共用（放在 common 包里，Spring Boot 从 classpath 根目录加载）。
+  和 Spring Boot 默认配置的区别只有一点：控制台和文件 appender 外面各包一层 AsyncAppender。
+
+  原因：同步 appender 写日志要拿一把锁。突发写压测时 200 个 Tomcat 线程里有 189 个卡在
+  OutputStreamAppender.writeBytes 上（jstack），写接口 P50 从 3ms 涨到 476ms，见 docs/benchmark.md。
+
+  neverBlock=true：队列满了丢日志，也不阻塞请求线程。discardingThreshold=0：队列没满之前不丢 INFO。
+  AsyncAppender 会在入队时拷贝 MDC，trace ID 不受影响。
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}/spring.log}"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+    <include resource="org/springframework/boot/logging/logback/file-appender.xml"/>
+
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="CONSOLE"/>
+    </appender>
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>8192</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <neverBlock>true</neverBlock>
+        <appender-ref ref="FILE"/>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="ASYNC_CONSOLE"/>
+        <appender-ref ref="ASYNC_FILE"/>
+    </root>
+</configuration>
