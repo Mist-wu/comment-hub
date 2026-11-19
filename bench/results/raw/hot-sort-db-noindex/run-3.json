@@ -1,0 +1,117 @@
+{
+ "metrics": {
+  "http_req_duration{expected_response:true}": {
+   "avg": 6824.017059360735,
+   "med": 3743.214,
+   "p(90)": 19624.498400000004,
+   "p(99)": 24895.2669,
+   "max": 26153.073
+  },
+  "http_req_duration": {
+   "avg": 5837.272962711868,
+   "med": 3008.398,
+   "p(90)": 14103.850000000002,
+   "p(99)": 24848.074699999997,
+   "max": 26153.073
+  },
+  "checks": {
+   "rate": 0.7406143344709898,
+   "passes": 217,
+   "fails": 76
+  },
+  "iterations": {
+   "rate": 7.3996853946727015,
+   "count": 293
+  },
+  "http_req_failed": {
+   "fails": 219,
+   "rate": 0.2576271186440678,
+   "passes": 76
+  },
+  "http_reqs": {
+   "count": 295,
+   "rate": 7.450195192588557
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 39596.278
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=like-flush": null,
+   "consumer=moderation": null,
+   "consumer=cache": null,
+   "consumer=counter": null
+  },
+  "e2e_p99_s": {
+   "consumer=like-flush": null,
+   "consumer=moderation": null,
+   "consumer=cache": null,
+   "consumer=counter": null
+  },
+  "cache_db_loads": {
+   "value": 0.0
+  },
+  "cache_db_load_rate_max": {
+   "value": 0.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 0.0,
+   "result=redis_hit": 0.0
+  },
+  "hikari_active_max": {
+   "value": 30.0
+  },
+  "hikari_pending_max": {
+   "value": 21.0
+  },
+  "tomcat_busy_max": {},
+  "mysql_qps_avg": {
+   "value": 11.057142857142857
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 218.28571428571428
+  },
+  "redis_ops_avg": {
+   "value": 6.885517556641238
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 0.0,
+   "outcome=ok,task=summarize": 0.0,
+   "outcome=upstream_error,task=moderate": 0.0,
+   "outcome=upstream_error,task=summarize": 0.0,
+   "outcome=circuit_open,task=moderate": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=timeout,task=moderate": 0.0,
+   "outcome=timeout,task=summarize": 0.0
+  },
+  "summary_results": {},
+  "like_flush_rows": {
+   "value": 0.0
+  },
+  "like_flush_events": {
+   "value": 0.0
+  }
+ },
+ "window": {
+  "start": 1795015757,
+  "end": 1795015797
+ }
+}

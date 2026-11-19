@@ -1,0 +1,115 @@
+{
+ "metrics": {
+  "http_reqs": {
+   "count": 1226048,
+   "rate": 12254.142892544549
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 1223045,
+   "fails": 0
+  },
+  "http_req_failed": {
+   "fails": 1226048,
+   "rate": 0,
+   "passes": 0
+  },
+  "http_req_duration{expected_response:true}": {
+   "p(99)": 49.003,
+   "max": 2169.515,
+   "avg": 15.170711781268226,
+   "med": 12.34,
+   "p(90)": 22.866
+  },
+  "iterations": {
+   "count": 1226045,
+   "rate": 12254.11290805073
+  },
+  "http_req_duration": {
+   "avg": 15.170711781268226,
+   "med": 12.34,
+   "p(90)": 22.866,
+   "p(99)": 49.003,
+   "max": 2169.515
+  },
+  "http_req_duration{scenario:reads}": {
+   "p(99)": 44.799559999999985,
+   "max": 2169.515,
+   "avg": 14.674986167312035,
+   "med": 12.325,
+   "p(90)": 22.71
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 100051.714
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=moderation": null,
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 7482.59033019617
+  },
+  "cache_db_load_rate_max": {
+   "value": 324.40000000000003
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 7482.59033019617,
+   "result=redis_hit": 1263131.3903386653
+  },
+  "hikari_active_max": {
+   "value": 30.0
+  },
+  "hikari_pending_max": {
+   "value": 151.0
+  },
+  "tomcat_busy_max": {},
+  "mysql_qps_avg": {
+   "value": 86.28767922137989
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 350.34889098916125
+  },
+  "redis_ops_avg": {
+   "value": 26148.011306492765
+  },
+  "ai_calls": {},
+  "summary_results": {},
+  "like_flush_rows": {
+   "value": 0.0
+  },
+  "like_flush_events": {
+   "value": 0.0
+  }
+ },
+ "window": {
+  "start": 1795052834,
+  "end": 1795052935
+ }
+}

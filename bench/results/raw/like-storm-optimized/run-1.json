@@ -1,0 +1,120 @@
+{
+ "metrics": {
+  "http_req_duration": {
+   "avg": 33.60782501135984,
+   "med": 29.235,
+   "p(90)": 62.422,
+   "p(99)": 114.72259999999997,
+   "max": 350.409
+  },
+  "http_req_duration{expected_response:true}": {
+   "avg": 33.60782501135984,
+   "med": 29.235,
+   "p(90)": 62.422,
+   "p(99)": 114.72259999999997,
+   "max": 350.409
+  },
+  "http_reqs": {
+   "count": 178263,
+   "rate": 5938.100886989309
+  },
+  "http_req_failed": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 178263
+  },
+  "iterations": {
+   "count": 178263,
+   "rate": 5938.100886989309
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 178263,
+   "fails": 0
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 30020.204
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": 816.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": 816.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": 0.018237385561322417,
+   "consumer=moderation": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": 0.05160021529301557,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 0.0
+  },
+  "cache_db_load_rate_max": {
+   "value": 0.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 0.0,
+   "result=redis_hit": 0.0
+  },
+  "hikari_active_max": {
+   "value": 30.0
+  },
+  "hikari_pending_max": {
+   "value": 158.0
+  },
+  "tomcat_busy_max": {
+   "value": 200.0
+  },
+  "mysql_qps_avg": {
+   "value": 12938.88
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 0.0
+  },
+  "redis_ops_avg": {
+   "value": 24341.96
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 0.0,
+   "outcome=ok,task=summarize": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=bulkhead_full,task=summarize": 0.0,
+   "outcome=bulkhead_full,task=moderate": 0.0
+  },
+  "summary_results": {
+   "result=deadline_exceeded": 0.0,
+   "result=not_ready": 0.0,
+   "result=ready": 0.0
+  },
+  "like_flush_rows": {
+   "value": 3423.83096
+  },
+  "like_flush_events": {
+   "value": 176906.46372
+  }
+ },
+ "window": {
+  "start": 1795058499,
+  "end": 1795058529
+ }
+}

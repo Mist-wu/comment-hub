@@ -5,7 +5,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 V="${VIDEO:-1}"
 out=results/explain.md
-my() { docker compose -f ../docker-compose.yml exec -T mysql mysql -uroot -proot comment_hub "$@" 2>/dev/null; }
+my() { docker compose -f ../docker-compose.yml exec -T mysql mysql --default-character-set=utf8mb4 -uroot -proot comment_hub "$@" 2>/dev/null; }
 
 cursor_at() { # 第 $1 页的游标 = 第 ($1-1)*20 条的 (created_at, id)
   local off=$(( ($1 - 1) * 20 - 1 ))

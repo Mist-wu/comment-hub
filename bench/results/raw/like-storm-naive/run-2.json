@@ -1,0 +1,114 @@
+{
+ "metrics": {
+  "http_req_failed": {
+   "passes": 0,
+   "fails": 37841,
+   "rate": 0
+  },
+  "http_req_duration": {
+   "avg": 159.0100124468164,
+   "med": 150.083,
+   "p(90)": 189.656,
+   "p(99)": 304.529,
+   "max": 663.136
+  },
+  "http_reqs": {
+   "rate": 1253.4380858359807,
+   "count": 37841
+  },
+  "http_req_duration{expected_response:true}": {
+   "max": 663.136,
+   "avg": 159.0100124468164,
+   "med": 150.083,
+   "p(90)": 189.656,
+   "p(99)": 304.529
+  },
+  "iterations": {
+   "count": 37841,
+   "rate": 1253.4380858359807
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 37841,
+   "fails": 0
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 30189.764
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 0.0
+  },
+  "cache_db_load_rate_max": {
+   "value": 0.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 0.0,
+   "result=redis_hit": 0.0
+  },
+  "hikari_active_max": {
+   "value": 30.0
+  },
+  "hikari_pending_max": {
+   "value": 170.0
+  },
+  "tomcat_busy_max": {
+   "value": 200.0
+  },
+  "mysql_qps_avg": {
+   "value": 10052.500000000002
+  },
+  "mysql_row_lock_waits": {
+   "value": 38938.06666666667
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 881965.5000000001
+  },
+  "mysql_slow_queries": {
+   "value": 0.0
+  },
+  "redis_ops_avg": {
+   "value": 1.6
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 0.0,
+   "outcome=ok,task=summarize": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=bulkhead_full,task=summarize": 0.0,
+   "outcome=bulkhead_full,task=moderate": 0.0
+  },
+  "summary_results": {
+   "result=deadline_exceeded": 0.0,
+   "result=not_ready": 0.0,
+   "result=ready": 0.0
+  },
+  "like_flush_rows": {},
+  "like_flush_events": {}
+ },
+ "window": {
+  "start": 1795058404,
+  "end": 1795058435
+ }
+}

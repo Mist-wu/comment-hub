@@ -19,7 +19,8 @@ export const options = {
   },
   summaryTrendStats: ['avg', 'med', 'p(90)', 'p(99)', 'max'],
   thresholds: { 'http_req_duration{scenario:reads}': ['p(99)<60000'], 'http_req_failed{scenario:reads}': ['rate<1'],
-                'http_req_duration{scenario:writes}': ['p(99)<60000'] },
+                'http_req_duration{scenario:writes}': ['p(99)<60000'], 'http_req_failed{scenario:writes}': ['rate<1'],
+                'http_reqs{scenario:reads}': ['count>0'], 'http_reqs{scenario:writes}': ['count>0'] },
 };
 
 export function reads() {

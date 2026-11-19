@@ -1,0 +1,108 @@
+{
+ "metrics": {
+  "http_req_failed": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 561498
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 561496,
+   "fails": 0
+  },
+  "iterations": {
+   "count": 561496,
+   "rate": 18700.441603333664
+  },
+  "http_reqs": {
+   "rate": 18700.508212682984,
+   "count": 561498
+  },
+  "http_req_duration{expected_response:true}": {
+   "avg": 10.655598500796225,
+   "med": 9.732,
+   "p(90)": 15.592,
+   "p(99)": 25.012029999999996,
+   "max": 400.548
+  },
+  "http_req_duration": {
+   "max": 400.548,
+   "avg": 10.655598500796225,
+   "med": 9.732,
+   "p(90)": 15.592,
+   "p(99)": 25.012029999999996
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 30025.815
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 0.0
+  },
+  "cache_db_load_rate_max": {
+   "value": 0.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 0.0,
+   "result=redis_hit": 586877.12
+  },
+  "hikari_active_max": {
+   "value": 0.0
+  },
+  "hikari_pending_max": {
+   "value": 0.0
+  },
+  "tomcat_busy_max": {
+   "value": 182.0
+  },
+  "mysql_qps_avg": {
+   "value": 8.360000000000001
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 0.0
+  },
+  "redis_ops_avg": {
+   "value": 37830.159999999996
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=bulkhead_full,task=moderate": 0.0
+  },
+  "summary_results": {},
+  "like_flush_rows": {},
+  "like_flush_events": {}
+ },
+ "window": {
+  "start": 1795057297,
+  "end": 1795057328
+ }
+}

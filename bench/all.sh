@@ -22,9 +22,11 @@ main() {
   CS='{"likeMode":"DB"}' $R like-storm-naive k6/03-like-storm.js
   $R like-storm-optimized k6/03-like-storm.js
   # 场景 4：模型故障（朴素版：摘要同步等模型、不设超时、无熔断无舱壁）
+  export K6_DOCKER=1   # 见 run.sh
   CS='{"summaryDeadlineMs":0}' GW='{"summaryAsync":false,"llmTimeoutMs":0,"bulkheadEnabled":false,"circuitBreakerEnabled":false,"rateLimitEnabled":false}' \
     $R llm-fault-naive k6/04-llm-fault.js
   $R llm-fault-optimized k6/04-llm-fault.js
+  unset K6_DOCKER
 }
 
 micro() {

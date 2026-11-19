@@ -1,0 +1,152 @@
+{
+ "metrics": {
+  "http_req_failed{scenario:reads}": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 144001
+  },
+  "http_req_duration{expected_response:true}": {
+   "avg": 1.337810280594453,
+   "med": 0.688743,
+   "p(90)": 1.422052,
+   "p(99)": 10.012064349999966,
+   "max": 204.926864
+  },
+  "http_req_duration{scenario:writes}": {
+   "max": 192.40164,
+   "avg": 2.0925024310312885,
+   "med": 1.446783,
+   "p(90)": 2.461027,
+   "p(99)": 9.593764
+  },
+  "http_reqs": {
+   "count": 149586,
+   "rate": 828.6703635038258
+  },
+  "http_reqs{scenario:reads}": {
+   "count": 144001,
+   "rate": 797.7308104696591
+  },
+  "http_req_failed{scenario:writes}": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 5401
+  },
+  "http_req_duration{scenario:reads}": {
+   "p(99)": 9.956509,
+   "max": 204.926864,
+   "avg": 1.3080890763397468,
+   "med": 0.683205,
+   "p(90)": 1.287785
+  },
+  "iterations": {
+   "rate": 828.6537442273527,
+   "count": 149583
+  },
+  "http_reqs{scenario:writes}": {
+   "count": 5401,
+   "rate": 29.92023741048068
+  },
+  "http_req_failed": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 149586
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 149402,
+   "fails": 0
+  },
+  "http_req_duration": {
+   "max": 204.926864,
+   "avg": 1.337810280594453,
+   "med": 0.688743,
+   "p(90)": 1.422052,
+   "p(99)": 10.012064349999966
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 180513.273538
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": 5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 14.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": 0.007518677488888888,
+   "consumer=counter": 0.008237321699162478,
+   "consumer=moderation": 0.009366410293852228
+  },
+  "e2e_p99_s": {
+   "consumer=cache": 0.01680983836249987,
+   "consumer=counter": 0.023668301716666975,
+   "consumer=moderation": 0.49587203039549516
+  },
+  "cache_db_loads": {
+   "value": 4038.3777777777777
+  },
+  "cache_db_load_rate_max": {
+   "value": 25.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 4038.3777777777777,
+   "result=redis_hit": 141135.94444444444
+  },
+  "hikari_active_max": {
+   "value": 1.0
+  },
+  "hikari_pending_max": {
+   "value": 0.0
+  },
+  "tomcat_busy_max": {
+   "value": 6.0
+  },
+  "mysql_qps_avg": {
+   "value": 612.7428571428571
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 0.0
+  },
+  "redis_ops_avg": {
+   "value": 3880.9666666666667
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 246.7111111111111,
+   "outcome=ok,task=summarize": 303.3333333333333,
+   "outcome=upstream_error,task=moderate": 0.0,
+   "outcome=upstream_error,task=summarize": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=timeout,task=moderate": 0.0,
+   "outcome=bulkhead_full,task=summarize": 183.0111111111111,
+   "outcome=circuit_open,task=summarize": 628.911111111111,
+   "outcome=timeout,task=summarize": 42.46666666666667,
+   "outcome=circuit_open,task=moderate": 0.0,
+   "outcome=rate_limited,task=summarize": 0.0
+  },
+  "summary_results": {
+   "result=deadline_exceeded": 0.0,
+   "result=not_ready": 77659.4,
+   "result=ready": 67507.84444444445
+  },
+  "like_flush_rows": {},
+  "like_flush_events": {}
+ },
+ "window": {
+  "start": 1795059525,
+  "end": 1795059707
+ }
+}

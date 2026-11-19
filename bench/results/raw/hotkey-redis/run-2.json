@@ -1,0 +1,108 @@
+{
+ "metrics": {
+  "http_req_failed": {
+   "passes": 0,
+   "fails": 578276,
+   "rate": 0
+  },
+  "http_req_duration{expected_response:true}": {
+   "avg": 10.345194592201695,
+   "med": 9.637,
+   "p(90)": 15.112,
+   "p(99)": 23.88,
+   "max": 77.69
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 578274,
+   "fails": 0
+  },
+  "iterations": {
+   "count": 578274,
+   "rate": 19260.415422174614
+  },
+  "http_reqs": {
+   "count": 578276,
+   "rate": 19260.48203563267
+  },
+  "http_req_duration": {
+   "avg": 10.345194592201695,
+   "med": 9.637,
+   "p(90)": 15.112,
+   "p(99)": 23.88,
+   "max": 77.69
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 30023.963
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 0.0
+  },
+  "cache_db_load_rate_max": {
+   "value": 0.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 0.0,
+   "result=redis_hit": 599077.48
+  },
+  "hikari_active_max": {
+   "value": 0.0
+  },
+  "hikari_pending_max": {
+   "value": 0.0
+  },
+  "tomcat_busy_max": {
+   "value": 143.0
+  },
+  "mysql_qps_avg": {
+   "value": 4.08
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 0.0
+  },
+  "redis_ops_avg": {
+   "value": 38766.88
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=bulkhead_full,task=moderate": 0.0
+  },
+  "summary_results": {},
+  "like_flush_rows": {},
+  "like_flush_events": {}
+ },
+ "window": {
+  "start": 1795057250,
+  "end": 1795057281
+ }
+}

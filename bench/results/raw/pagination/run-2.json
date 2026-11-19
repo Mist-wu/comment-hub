@@ -1,0 +1,150 @@
+{
+ "metrics": {
+  "http_req_duration{scenario:cursor_p1000}": {
+   "avg": 1.5223973574595255,
+   "med": 1.391,
+   "p(90)": 2.066,
+   "p(99)": 3.9440799999999956,
+   "max": 26.516
+  },
+  "http_req_duration": {
+   "avg": 2.2124836903322174,
+   "med": 1.384,
+   "p(90)": 2.3,
+   "p(99)": 15.959,
+   "max": 205.532
+  },
+  "http_req_failed": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 530207
+  },
+  "http_req_duration{expected_response:true}": {
+   "avg": 2.2124836903322174,
+   "med": 1.384,
+   "p(90)": 2.3,
+   "p(99)": 15.959,
+   "max": 205.532
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 529206,
+   "fails": 0
+  },
+  "http_req_duration{scenario:offset_p1}": {
+   "avg": 1.365540503526672,
+   "med": 1.207,
+   "p(90)": 1.976,
+   "p(99)": 3.898,
+   "max": 39.799
+  },
+  "iterations": {
+   "count": 529206,
+   "rate": 4043.082544117976
+  },
+  "http_req_duration{scenario:cursor_p100}": {
+   "avg": 1.4788216221588613,
+   "med": 1.377,
+   "p(90)": 1.953,
+   "p(99)": 3.558,
+   "max": 11.636
+  },
+  "http_req_duration{scenario:cursor_p1}": {
+   "avg": 1.7152469938107926,
+   "med": 1.491,
+   "p(90)": 2.382,
+   "p(99)": 5.241,
+   "max": 32.331
+  },
+  "http_req_duration{scenario:offset_p1000}": {
+   "avg": 109.93255299286088,
+   "med": 116.875,
+   "p(90)": 141.173,
+   "p(99)": 174.1428,
+   "max": 205.532
+  },
+  "http_req_duration{scenario:offset_p100}": {
+   "avg": 12.778519249309086,
+   "med": 12.356,
+   "p(90)": 18.2802,
+   "p(99)": 24.54252,
+   "max": 47.183
+  },
+  "http_reqs": {
+   "count": 530207,
+   "rate": 4050.7300870911513
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 130891.713
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=counter": null,
+   "consumer=moderation": null,
+   "consumer=cache": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 0.0
+  },
+  "cache_db_load_rate_max": {
+   "value": 0.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 0.0,
+   "result=redis_hit": 0.0
+  },
+  "hikari_active_max": {
+   "value": 10.0
+  },
+  "hikari_pending_max": {
+   "value": 0.0
+  },
+  "tomcat_busy_max": {
+   "value": 11.0
+  },
+  "mysql_qps_avg": {
+   "value": 3949.016
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 1254.528
+  },
+  "redis_ops_avg": {
+   "value": 3718.707692307692
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=bulkhead_full,task=moderate": 0.0
+  },
+  "summary_results": {},
+  "like_flush_rows": {},
+  "like_flush_events": {}
+ },
+ "window": {
+  "start": 1795056625,
+  "end": 1795056757
+ }
+}

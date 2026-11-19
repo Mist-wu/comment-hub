@@ -1,0 +1,108 @@
+{
+ "metrics": {
+  "iterations": {
+   "count": 256382,
+   "rate": 8541.704702798437
+  },
+  "http_req_failed": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 256384
+  },
+  "http_reqs": {
+   "count": 256384,
+   "rate": 8541.771335438036
+  },
+  "http_req_duration": {
+   "p(90)": 9.320700000000006,
+   "p(99)": 15.241,
+   "max": 59.923,
+   "avg": 5.7965245452134715,
+   "med": 5.194
+  },
+  "http_req_duration{expected_response:true}": {
+   "avg": 5.7965245452134715,
+   "med": 5.194,
+   "p(90)": 9.320700000000006,
+   "p(99)": 15.241,
+   "max": 59.923
+  },
+  "checks": {
+   "rate": 1,
+   "passes": 256382,
+   "fails": 0
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 30015.32
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 0.0
+  },
+  "cache_db_load_rate_max": {
+   "value": 0.0
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 0.0,
+   "result=redis_hit": 0.0
+  },
+  "hikari_active_max": {
+   "value": 29.0
+  },
+  "hikari_pending_max": {
+   "value": 2.0
+  },
+  "tomcat_busy_max": {
+   "value": 46.0
+  },
+  "mysql_qps_avg": {
+   "value": 8610.039999999999
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 0.0
+  },
+  "redis_ops_avg": {
+   "value": 8515.24
+  },
+  "ai_calls": {
+   "outcome=ok,task=moderate": 0.0,
+   "outcome=rate_limited,task=moderate": 0.0,
+   "outcome=bulkhead_full,task=moderate": 0.0
+  },
+  "summary_results": {},
+  "like_flush_rows": {},
+  "like_flush_events": {}
+ },
+ "window": {
+  "start": 1795056968,
+  "end": 1795056998
+ }
+}

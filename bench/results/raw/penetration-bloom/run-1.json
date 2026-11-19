@@ -1,0 +1,122 @@
+{
+ "metrics": {
+  "checks": {
+   "fails": 0,
+   "rate": 1,
+   "passes": 582725
+  },
+  "http_req_duration{name:normal}": {
+   "med": 12.598,
+   "p(90)": 23.597,
+   "p(99)": 47.10479999999997,
+   "max": 202.932,
+   "avg": 14.68665845308836
+  },
+  "http_reqs": {
+   "count": 582728,
+   "rate": 19365.97057650492
+  },
+  "iterations": {
+   "count": 582725,
+   "rate": 19365.87087662482
+  },
+  "http_req_duration": {
+   "med": 8.196,
+   "p(90)": 19.081,
+   "p(99)": 38.74472999999999,
+   "max": 202.932,
+   "avg": 10.213401506362866
+  },
+  "http_req_duration{name:missing}": {
+   "avg": 5.752911091766564,
+   "med": 4.963,
+   "p(90)": 9.341,
+   "p(99)": 18.674169999999997,
+   "max": 199.305
+  },
+  "http_req_duration{expected_response:true}": {
+   "p(90)": 19.081,
+   "p(99)": 38.74472999999999,
+   "max": 202.932,
+   "avg": 10.213401506362866,
+   "med": 8.196
+  },
+  "http_req_failed": {
+   "rate": 0,
+   "passes": 0,
+   "fails": 582728
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 30090.307
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": null,
+   "consumer=moderation": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 10214.893958868894
+  },
+  "cache_db_load_rate_max": {
+   "value": 808.0
+  },
+  "cache_results": {
+   "result=local_hit": 98602.58676092545,
+   "result=miss": 10214.893958868894,
+   "result=redis_hit": 185086.3592544987
+  },
+  "hikari_active_max": {
+   "value": 1.0
+  },
+  "hikari_pending_max": {
+   "value": 0.0
+  },
+  "tomcat_busy_max": {},
+  "mysql_qps_avg": {
+   "value": 255.79433621209083
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 0.0
+  },
+  "redis_ops_avg": {
+   "value": 28084.91664992971
+  },
+  "ai_calls": {},
+  "summary_results": {},
+  "like_flush_rows": {
+   "value": 0.0
+  },
+  "like_flush_events": {
+   "value": 0.0
+  }
+ },
+ "window": {
+  "start": 1795052343,
+  "end": 1795052373
+ }
+}

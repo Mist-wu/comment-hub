@@ -21,6 +21,16 @@ GW_DEFAULT='{"llmTimeoutMs":3000,"bulkheadEnabled":true,"bulkheadMaxConcurrent":
 CONSUMER_DEFAULT='{"moderationFailRate":0.0,"moderationDeadlineMs":5000}'
 MOCK_DEFAULT='{"latencyMs":300,"jitterMs":200,"errorRate":0.0,"timeoutRate":0.0,"badJsonRate":0.0}'
 
+# K6_DOCKER=1：k6 在 Colima VM 里的容器中运行、直接走 compose 网络，不经过宿主机的端口转发。
+# 模型故障场景的朴素版会堆积大量挂起连接，Colima 的端口转发在这种负载下两次断开过。
+if [ -n "${K6_DOCKER:-}" ]; then
+  k6() {
+    colima ssh -- docker run --rm --network comment-hub_default -v "$PWD:$PWD" -w "$PWD" \
+      -e BASE=http://comment-service:8080 -e GATEWAY=http://ai-gateway:8081 -e MOCK=http://mock-llm:8000 \
+      grafana/k6:2.4.0 "$@"
+  }
+fi
+
 post() { curl -fsS -X POST "$1" -H 'Content-Type: application/json' -d "$2" >/dev/null; }
 
 apply_toggles() {

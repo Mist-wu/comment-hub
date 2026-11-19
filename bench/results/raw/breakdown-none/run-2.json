@@ -1,0 +1,124 @@
+{
+ "metrics": {
+  "http_req_duration{expected_response:true}": {
+   "max": 29814.372,
+   "avg": 59.90153865816583,
+   "med": 34.442,
+   "p(90)": 77.7827,
+   "p(99)": 177.48907999999992
+  },
+  "hub_errors": {
+   "count": 2359,
+   "rate": 31.339354191429386
+  },
+  "http_req_failed": {
+   "rate": 0.017426184337856705,
+   "passes": 2359,
+   "fails": 133012
+  },
+  "http_req_failed{scenario:reads}": {
+   "rate": 0.017427342976610867,
+   "passes": 2359,
+   "fails": 133003
+  },
+  "http_req_duration{scenario:reads}": {
+   "avg": 135.3375599429676,
+   "med": 34.89,
+   "p(90)": 82.89380000000001,
+   "p(99)": 3241.77503,
+   "max": 30000.148
+  },
+  "checks": {
+   "rate": 0.9825726570233891,
+   "passes": 133003,
+   "fails": 2359
+  },
+  "iterations": {
+   "count": 135368,
+   "rate": 1798.3661289467627
+  },
+  "http_req_duration": {
+   "max": 30000.148,
+   "avg": 135.36469377488515,
+   "med": 34.89,
+   "p(90)": 82.897,
+   "p(99)": 3241.7681
+  },
+  "http_reqs": {
+   "rate": 1798.4059839966035,
+   "count": 135371
+  }
+ },
+ "extra": {},
+ "state": {
+  "testRunDurationMs": 75272.77
+ },
+ "prom": {
+  "kafka_lag_max": {
+   "value": -5.0
+  },
+  "kafka_lag_max_by_group": {
+   "consumergroup=cache": 0.0,
+   "consumergroup=counter": 0.0,
+   "consumergroup=like-flush": -5.0,
+   "consumergroup=moderation": 0.0
+  },
+  "e2e_p50_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": null,
+   "consumer=moderation": null
+  },
+  "e2e_p99_s": {
+   "consumer=cache": null,
+   "consumer=counter": null,
+   "consumer=like-flush": null,
+   "consumer=moderation": null
+  },
+  "cache_db_loads": {
+   "value": 2187.116688457858
+  },
+  "cache_db_load_rate_max": {
+   "value": 69.60081883316273
+  },
+  "cache_results": {
+   "result=local_hit": 0.0,
+   "result=miss": 2187.116688457858,
+   "result=redis_hit": 136168.75817169662
+  },
+  "hikari_active_max": {
+   "value": 30.0
+  },
+  "hikari_pending_max": {
+   "value": 169.0
+  },
+  "tomcat_busy_max": {},
+  "mysql_qps_avg": {
+   "value": 7.81893598878467
+  },
+  "mysql_row_lock_waits": {
+   "value": 0.0
+  },
+  "mysql_row_lock_time_ms": {
+   "value": 0.0
+  },
+  "mysql_slow_queries": {
+   "value": 72.4949776705063
+  },
+  "redis_ops_avg": {
+   "value": 3623.1048588516423
+  },
+  "ai_calls": {},
+  "summary_results": {},
+  "like_flush_rows": {
+   "value": 0.0
+  },
+  "like_flush_events": {
+   "value": 0.0
+  }
+ },
+ "window": {
+  "start": 1795051416,
+  "end": 1795051492
+ }
+}
