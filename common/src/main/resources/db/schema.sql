@@ -20,7 +20,9 @@ CREATE TABLE IF NOT EXISTS comment (
     status     TINYINT      NOT NULL DEFAULT 0,
     created_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     -- 游标分页：WHERE video_id = ? AND (created_at, id) < (?, ?) ORDER BY created_at DESC, id DESC
-    KEY idx_video_created (video_id, created_at, id)
+    KEY idx_video_created (video_id, created_at, id),
+    -- 最热榜重建的覆盖索引：倒序扫描直接拿到前 N 条，不再 filesort（见 docs/benchmark.md“慢查询”）
+    KEY idx_video_like (video_id, like_count, id, status)
 ) ENGINE = InnoDB;
 
 CREATE TABLE IF NOT EXISTS comment_like (
@@ -78,7 +80,8 @@ CREATE TABLE IF NOT EXISTS ai_call (
 CREATE TABLE IF NOT EXISTS moderation_gold (
     id          BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
     content     VARCHAR(500) NOT NULL,
-    human_label VARCHAR(8)   NOT NULL,   -- PASS / REVIEW / REJECT
+    human_label VARCHAR(8),              -- PASS / REVIEW / REJECT，人工标注
+    source      VARCHAR(16)  NOT NULL DEFAULT 'sample', -- sample: 从生成数据抽样；hard: 手写的边界用例
     model_label VARCHAR(8),
     model_conf  DOUBLE,
     rule_label  VARCHAR(8)
