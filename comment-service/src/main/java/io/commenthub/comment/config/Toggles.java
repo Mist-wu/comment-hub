@@ -13,10 +13,18 @@ public class Toggles {
     public enum Penetration { NONE, NULL_VALUE, BLOOM }
     public enum LikeMode { DB, REDIS }
     public enum CountMode { COUNT, COUNTER }
+    public enum MutexFallback { FAIL, DB }
 
     public volatile HotMode hotMode = HotMode.ZSET;
     public volatile boolean cacheEnabled = true;
     public volatile Breakdown breakdown = Breakdown.MUTEX;
+    /**
+     * 互斥锁的租期。必须比“最慢的一次回源”长：租期 5 秒时，数据库一慢、回源超过 5 秒，锁就过期，
+     * 每 5 秒放进来一个新的回源请求，最终把连接池占满（docs/incidents/03）。
+     */
+    public volatile int mutexLockTtlMs = 30_000;
+    /** 等锁 2 秒还没等到：FAIL 直接返回 503，DB 自己回源（旧行为，会在重建慢时重新形成击穿）。 */
+    public volatile MutexFallback mutexFallback = MutexFallback.FAIL;
     public volatile Penetration penetration = Penetration.BLOOM;
     public volatile int cacheTtlSeconds = 300;
     /** TTL 随机抖动上限（秒），0 = 不抖动 */

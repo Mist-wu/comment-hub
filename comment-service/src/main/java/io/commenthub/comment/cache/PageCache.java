@@ -51,7 +51,7 @@ public class PageCache {
     private final RedisMutex mutex;
     private final Cache<String, Page> local;
     private final ExecutorService rebuildPool = Executors.newVirtualThreadPerTaskExecutor();
-    private final Counter localHit, redisHit, miss, dbLoad, lockWait;
+    private final Counter localHit, redisHit, miss, dbLoad, lockWait, lockTimeout;
 
     public PageCache(StringRedisTemplate redis, ObjectMapper om, Toggles toggles, HotKeyDetector hotKeys,
                      RedisMutex mutex, MeterRegistry meters) {
@@ -80,6 +80,7 @@ public class PageCache {
         this.miss = Counter.builder("hub.cache").tag("result", "miss").register(meters);
         this.dbLoad = Counter.builder("hub.cache.db_load").register(meters);
         this.lockWait = Counter.builder("hub.cache.lock_wait").register(meters);
+        this.lockTimeout = Counter.builder("hub.cache.lock_timeout").register(meters);
     }
 
     public Page get(String key, Supplier<Page> loader) {
@@ -129,7 +130,7 @@ public class PageCache {
                 redisHit.increment();
                 return decode(raw);
             }
-            String token = mutex.tryLock(lockKey, Duration.ofSeconds(5));
+            String token = mutex.tryLock(lockKey, Duration.ofMillis(toggles.mutexLockTtlMs));
             if (token != null) {
                 try {
                     String again = redis.opsForValue().get(key); // double check
@@ -148,9 +149,14 @@ public class PageCache {
             lockWait.increment();
             sleep(20);
         }
-        // 等了 2 秒还没拿到，说明重建异常慢；直接回源，宁可多打一次库也不让请求无限等
-        log.warn("mutex wait timeout, load directly key={}", key);
-        return load(loader);
+        // 等了 2 秒还没等到，说明重建异常慢（数据库已经在吃力）。这时再回源只会雪上加霜，
+        // 默认直接返回 503 让客户端稍后重试；DB 是修复前的行为，留着给复盘 03 复现。
+        lockTimeout.increment();
+        if (toggles.mutexFallback == Toggles.MutexFallback.DB) {
+            log.warn("mutex wait timeout, load directly key={}", key);
+            return load(loader);
+        }
+        throw new CacheBusyException(key);
     }
 
     // ---------- 逻辑过期：值里带过期时间，物理上不过期；过期后返回旧值，单线程异步重建 ----------
@@ -168,7 +174,7 @@ public class PageCache {
         Page p = om.convertValue(node.get("d"), Page.class);
         if (System.currentTimeMillis() > expireAt) {
             String lockKey = "lock:" + key;
-            String token = mutex.tryLock(lockKey, Duration.ofSeconds(10));
+            String token = mutex.tryLock(lockKey, Duration.ofMillis(toggles.mutexLockTtlMs));
             if (token != null) {
                 rebuildPool.submit(() -> {
                     try {
@@ -187,7 +193,7 @@ public class PageCache {
     private Page withMutexLogicalInit(String key, Supplier<Page> loader) {
         String lockKey = "lock:" + key;
         for (int i = 0; i < 100; i++) {
-            String token = mutex.tryLock(lockKey, Duration.ofSeconds(5));
+            String token = mutex.tryLock(lockKey, Duration.ofMillis(toggles.mutexLockTtlMs));
             if (token != null) {
                 try {
                     String again = redis.opsForValue().get(key);

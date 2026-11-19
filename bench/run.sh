@@ -16,7 +16,7 @@ rm -rf "$out"; mkdir -p "$out"
 envs=()
 for kv in "$@"; do envs+=(-e "$kv"); done
 
-CS_DEFAULT='{"hotMode":"ZSET","cacheEnabled":true,"breakdown":"MUTEX","penetration":"BLOOM","cacheTtlSeconds":300,"ttlJitterSeconds":60,"localCache":true,"hotKeyThreshold":200,"localTtlMillis":1000,"likeMode":"REDIS","countMode":"COUNTER","syncWrite":false,"summaryEnabled":true,"summaryDeadlineMs":150,"summaryMinComments":1000}'
+CS_DEFAULT='{"hotMode":"ZSET","cacheEnabled":true,"breakdown":"MUTEX","mutexLockTtlMs":30000,"mutexFallback":"FAIL","penetration":"BLOOM","cacheTtlSeconds":300,"ttlJitterSeconds":60,"localCache":true,"hotKeyThreshold":200,"localTtlMillis":1000,"likeMode":"REDIS","countMode":"COUNTER","syncWrite":false,"summaryEnabled":true,"summaryDeadlineMs":150,"summaryMinComments":1000}'
 GW_DEFAULT='{"llmTimeoutMs":3000,"bulkheadEnabled":true,"bulkheadMaxConcurrent":32,"bulkheadWaitMs":20,"summaryAsync":true,"rateLimitEnabled":true,"circuitBreakerEnabled":true}'
 CONSUMER_DEFAULT='{"moderationFailRate":0.0,"moderationDeadlineMs":5000}'
 MOCK_DEFAULT='{"latencyMs":300,"jitterMs":200,"errorRate":0.0,"timeoutRate":0.0,"badJsonRate":0.0}'
