@@ -2,7 +2,7 @@
 // 不存在的 ID 从固定的 2 万个里随机选，NULL_VALUE 在重复访问时才有效果。
 import http from 'k6/http';
 import { check } from 'k6';
-import { BASE, VIDEOS, zipfVideo, summary, toggles, admin } from './lib/common.js';
+import { BASE, VIDEOS, zipfVideo, summary, overrideToggles, setToggles, admin } from './lib/common.js';
 
 export const options = {
   scenarios: { mix: { executor: 'constant-vus', vus: parseInt(__ENV.VUS || '200'), duration: '30s' } },
@@ -11,8 +11,9 @@ export const options = {
 };
 
 export function setup() {
-  toggles({ penetration: __ENV.MODE || 'BLOOM', cacheEnabled: true, summaryEnabled: false });
+  const previous = overrideToggles({ penetration: __ENV.MODE || 'BLOOM', cacheEnabled: true, summaryEnabled: false });
   admin(`${BASE}/admin/cache/flush?prefix=cm:`);
+  return previous;
 }
 
 export default function () {
@@ -24,5 +25,4 @@ export default function () {
   }
 }
 
-export function teardown() { toggles({ penetration: 'BLOOM' }); }
-export function handleSummary(d) { return summary(d); }
+export { setToggles as teardown, summary as handleSummary };

@@ -18,4 +18,4 @@ export default function () {
   check(r, { ok: (res) => res.status === 200 });
 }
 
-export function handleSummary(d) { return summary(d); }
+export { summary as handleSummary };

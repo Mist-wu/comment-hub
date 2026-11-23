@@ -105,7 +105,7 @@ mock-llm 挂起 → 网关 HTTP 调用不超时，同步等 → comment-service 
 
 修复后的 jstack（`jstack-fixed.txt`）里，200 个 Tomcat 线程都是 TIMED_WAITING，在线程池里等任务，没有一个卡在 gRPC 上。修复后网关熔断器的状态是 HALF_OPEN（`breaker-after.json`），仍在周期性地试探模型。图中修复后，摘要调用结果先是 `bulkhead_full` 和 `timeout`，随后变成 `circuit_open`，说明熔断已经接管。
 
-更完整的对比（模型延迟 10 秒、错误率 50%，持续 90 秒，3 次取中位数）见 benchmark.md 的场景 4：无保护时 Tomcat 忙线程顶到 200、读 P99 18.9 秒；有保护时忙线程峰值 14、读 P99 5.3ms。
+更完整的对比（模型延迟 10 秒、错误率 50%，持续 90 秒，3 次取中位数）见 benchmark.md 的场景 4：无保护时 Tomcat 忙线程顶到 200、读 P99 18.9 秒；有保护时忙线程峰值 6、读 P99 5.3ms。
 
 ## 后续
 

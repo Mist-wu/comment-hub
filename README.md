@@ -101,6 +101,8 @@ scripts/incidents/02-no-timeout.sh        # 模型无超时 → 线程池耗尽
 scripts/incidents/03-breakdown-pool.sh    # 热点 key 击穿 → 连接池耗尽
 ```
 
+每次演练的证据和图表写入独立的 `logs/<脚本名>.<随机后缀>/` 目录。仓库保留的历史记录在 `docs/incidents/`。
+
 ### 运行时开关
 
 朴素版和优化版靠 `localhost:8080/admin/toggles` 切换，`GET` 查看当前值，`POST` 一个 JSON 修改，比如 `{"breakdown":"NONE"}`。最常改的几个：

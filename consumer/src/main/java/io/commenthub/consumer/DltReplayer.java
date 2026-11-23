@@ -43,7 +43,7 @@ public class DltReplayer {
         p.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         int n = 0;
         try (KafkaConsumer<String, String> c = new KafkaConsumer<>(p)) {
-            c.subscribe(List.of(topic + "-dlt"));
+            c.subscribe(List.of(DltNames.topic(topic)));
             int emptyPolls = 0;
             while (n < max && emptyPolls < 3) {
                 ConsumerRecords<String, String> recs = c.poll(Duration.ofSeconds(1));
@@ -53,17 +53,22 @@ public class DltReplayer {
                 }
                 emptyPolls = 0;
                 for (ConsumerRecord<String, String> r : recs) {
-                    ProducerRecord<String, String> out = new ProducerRecord<>(topic, r.key(), r.value());
-                    for (Header h : r.headers()) {
-                        if (!h.key().startsWith("kafka_dlt")) out.headers().add(h);
-                    }
-                    template.send(out).get();
+                    template.send(toReplay(topic, r)).get();
                     n++;
                 }
                 c.commitSync();
             }
         }
-        log.info("replayed {} messages from {}-dlt", n, topic);
+        log.info("replayed {} messages from {}", n, DltNames.topic(topic));
         return Map.of("topic", topic, "replayed", n);
+    }
+
+    /** 发回原 topic，保留 key 和 trace-id，去掉 Spring 加的 kafka_dlt 头。 */
+    static ProducerRecord<String, String> toReplay(String topic, ConsumerRecord<String, String> r) {
+        ProducerRecord<String, String> out = new ProducerRecord<>(topic, r.key(), r.value());
+        for (Header h : r.headers()) {
+            if (!h.key().startsWith("kafka_dlt")) out.headers().add(h);
+        }
+        return out;
     }
 }

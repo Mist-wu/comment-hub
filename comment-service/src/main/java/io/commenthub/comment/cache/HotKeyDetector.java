@@ -32,10 +32,6 @@ public class HotKeyDetector {
         return hot.contains(key);
     }
 
-    public Set<String> hotKeys() {
-        return hot;
-    }
-
     @Scheduled(fixedRate = 1000)
     public void rotate() {
         Map<String, LongAdder> last = window;

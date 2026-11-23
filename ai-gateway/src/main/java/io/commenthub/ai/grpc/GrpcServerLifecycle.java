@@ -12,6 +12,8 @@ import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -22,6 +24,9 @@ public class GrpcServerLifecycle implements SmartLifecycle {
     private final AiGatewayGrpcService service;
     private final int port;
     private Server server;
+    private ExecutorService grpcExecutor;
+    /** 优雅停止和线程池各自最多等这么久。超时后 shutdownNow，不等待未响应的调用。 */
+    Duration stopWait = Duration.ofSeconds(5);
 
     public GrpcServerLifecycle(AiGatewayGrpcService service, @Value("${hub.grpc.port:9090}") int port) {
         this.service = service;
@@ -30,29 +35,59 @@ public class GrpcServerLifecycle implements SmartLifecycle {
 
     @Override
     public void start() {
+        ExecutorService exec = Executors.newVirtualThreadPerTaskExecutor();
+        this.grpcExecutor = exec;
         try {
             server = ServerBuilder.forPort(port)
-                    .executor(Executors.newVirtualThreadPerTaskExecutor())
+                    .executor(exec)
                     .addService(ServerInterceptors.intercept(service, GrpcTraceInterceptors.server()))
                     .addService(ProtoReflectionService.newInstance())
                     .build()
                     .start();
-            log.info("gRPC server started on {}", port);
+            log.info("gRPC server started on {}", server.getPort());
         } catch (IOException e) {
+            exec.shutdownNow();
             throw new IllegalStateException(e);
         }
     }
 
     @Override
     public void stop() {
-        if (server != null) {
-            server.shutdown();
+        Server s = server;
+        if (s != null) {
+            s.shutdown();
             try {
-                server.awaitTermination(5, TimeUnit.SECONDS);
+                if (!s.awaitTermination(stopWait.toMillis(), TimeUnit.MILLISECONDS)) {
+                    log.warn("gRPC graceful stop exceeded {}ms", stopWait.toMillis());
+                    s.shutdownNow();
+                    if (!s.awaitTermination(stopWait.toMillis(), TimeUnit.MILLISECONDS)) {
+                        log.warn("gRPC still running after shutdownNow");
+                    }
+                }
+            } catch (InterruptedException e) {
+                s.shutdownNow();
+                Thread.currentThread().interrupt();
+            }
+        }
+        ExecutorService exec = grpcExecutor;
+        if (exec != null) {
+            exec.shutdownNow();
+            try {
+                if (!exec.awaitTermination(stopWait.toMillis(), TimeUnit.MILLISECONDS)) {
+                    log.warn("gRPC executor still has tasks after {}ms", stopWait.toMillis());
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }
+    }
+
+    int boundPort() {
+        return server == null ? -1 : server.getPort();
+    }
+
+    boolean executorStopped() {
+        return grpcExecutor != null && grpcExecutor.isShutdown();
     }
 
     @Override

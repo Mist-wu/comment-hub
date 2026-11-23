@@ -36,8 +36,4 @@ public final class Zipf {
     public double topShare(int k) {
         return cdf[Math.min(k, cdf.length) - 1];
     }
-
-    public int size() {
-        return cdf.length;
-    }
 }

@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 模型调用记账，沿用 y2b-rs 的做法：调用开始先插一行 started，结束后回填状态、token、费用、耗时。
+ * 模型调用记账：调用开始先插一行 started，结束后回填状态、token、费用、耗时。
  * 进程在调用中途崩溃时会留下 started 行，能看出有多少调用“花了钱但没拿到结果”。
  */
 @Component

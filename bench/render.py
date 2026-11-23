@@ -4,54 +4,27 @@
 所有数字都是 3 次运行的中位数；表格里每一格都能在 raw 目录里找到对应的 JSON。
 用法：render.py > bench/results/tables.md
 """
-import glob
-import json
-import os
-import statistics
-
-HERE = os.path.dirname(os.path.abspath(__file__))
-RAW = os.path.join(HERE, "results", "raw")
+from report import err_of, load, med, qps_of
 
 
-def runs(case):
-    out = []
-    for f in sorted(glob.glob(os.path.join(RAW, case, "run-*.json"))):
-        with open(f) as fh:
-            out.append(json.load(fh))
-    return out
+def http(case, tag="", *, traffic_tag=None):
+    """返回 (全程 qps, p50, p99, err%)。tag 形如 '{scenario:reads}'。
 
-
-def med(xs):
-    xs = [x for x in xs if x is not None]
-    return statistics.median(xs) if xs else None
-
-
-def http(case, tag=""):
-    """返回 (qps, p50, p99, err%)，tag 形如 '{scenario:reads}'。"""
-    rs = runs(case)
+    全程 QPS 用 k6 的 rate。带 tag 时缺了同名 http_reqs / http_req_failed 就留空，
+    不用无 tag 的总量填进这一行。
+    """
+    rs = load(case)
     if not rs:
         return None
-    q, p50, p99, err = [], [], [], []
-    for r in rs:
-        m = r["metrics"]
-        d = m.get("http_req_duration" + tag) or {}
-        secs = r["state"]["testRunDurationMs"] / 1000
-        reqs = m.get("http_reqs" + tag) or {}
-        if not reqs and not tag:
-            reqs = m.get("http_reqs", {})
-        if not reqs:
-            # 没有按 tag 拆的请求数时用总数：这些脚本里其它场景（过期触发、预热）的请求不到 1%
-            reqs = m.get("http_reqs", {})
-        q.append(reqs.get("rate") or reqs.get("count", 0) / secs)
-        p50.append(d.get("med"))
-        p99.append(d.get("p(99)"))
-        f = m.get("http_req_failed" + tag) or ({} if tag else m.get("http_req_failed", {}))
-        err.append((f.get("rate") or 0) * 100)
-    return med(q), med(p50), med(p99), med(err)
+    if traffic_tag is None:
+        traffic_tag = tag
+    durations = [r["metrics"].get("http_req_duration" + tag, {}) for r in rs]
+    return (med(qps_of(r, traffic_tag) for r in rs), med(d.get("med") for d in durations),
+            med(d.get("p(99)") for d in durations), med(err_of(r, traffic_tag) for r in rs))
 
 
-def prom(case, key, label=None, agg=med):
-    rs = runs(case)
+def prom(case, key, label=None):
+    rs = load(case)
     vals = []
     for r in rs:
         s = (r.get("prom") or {}).get(key) or {}
@@ -62,14 +35,12 @@ def prom(case, key, label=None, agg=med):
         else:
             v = next((x for k, x in s.items() if label in k), None)
         vals.append(v)
-    return agg(vals)
+    return med(vals)
 
 
 def f(x, nd=1, unit=""):
     if x is None:
         return "-"
-    if isinstance(x, float) and nd == 0:
-        return f"{x:,.0f}{unit}"
     return f"{x:,.{nd}f}{unit}"
 
 
@@ -97,7 +68,7 @@ def lag(case):
 
 def main():
     # ---------- 分页 ----------
-    if runs("pagination"):
+    if load("pagination"):
         rows = []
         for p in (1, 100, 1000):
             o = http("pagination", f"{{scenario:offset_p{p}}}")
@@ -107,34 +78,34 @@ def main():
                 table(["页码", "offset P50 ms", "offset P99 ms", "游标 P50 ms", "游标 P99 ms", "P99 offset÷游标"], rows))
 
     # ---------- 通用 A/B ----------
-    def ab(title, pairs, tag="", db=False):
+    def ab(title, pairs, tag="", extra=()):
         rows = []
         for name, case in pairs:
             h = http(case, tag)
             if h is None:
                 continue
             row = [name, f(h[0], 0), f(h[1], 2), f(h[2], 1), f(h[3], 2)]
-            if db:
-                row.append(f(prom(case, "mysql_qps_avg"), 0))
+            row.extend(fn(case) for _, fn in extra)
             rows.append(row)
         if rows:
-            section(title, table(["版本", "QPS", "P50 ms", "P99 ms", "错误率 %"] + (["MySQL 平均 QPS"] if db else []), rows))
+            section(title, table(["版本", "QPS", "P50 ms", "P99 ms", "错误率 %"] + [name for name, _ in extra], rows))
 
     ab("最热排序：实时 ORDER BY like_count vs 定时写 ZSet（前 100 个视频，50 VU）",
        [("实时 ORDER BY，无 idx_video_like（filesort）", "hot-sort-db-noindex"),
-        ("实时 ORDER BY，有覆盖索引 idx_video_like", "hot-sort-db"), ("定时写 ZSet", "hot-sort-zset")], db=True)
+        ("实时 ORDER BY，有覆盖索引 idx_video_like", "hot-sort-db"), ("定时写 ZSet", "hot-sort-zset")], extra=[("MySQL 平均 QPS", lambda c: f(prom(c, "mysql_qps_avg"), 0))])
 
     # 击穿
     rows = []
     for name, case in [("不处理", "breakdown-none"), ("互斥锁", "breakdown-mutex"), ("逻辑过期", "breakdown-logical")]:
-        h = http(case, "{scenario:reads}")
+        h = http(case, "{scenario:reads}", traffic_tag="")
         if h is None:
             continue
         rows.append([name, f(h[0], 0), f(h[1], 2), f(h[2], 1), f(h[3], 2),
                      f(prom(case, "cache_db_loads"), 0), f(prom(case, "hikari_active_max"), 0), f(prom(case, "hikari_pending_max"), 0)])
     if rows:
         section("缓存击穿：热点 key 每 10 秒过期一次（300 VU 打同一个 key，回源是 151 万行 filesort）",
-                table(["版本", "QPS", "P50 ms", "P99 ms", "错误率 %", "60 秒内回源次数", "连接池 active 峰值", "连接池 pending 峰值"], rows))
+                table(["版本", "全程 QPS", "P50 ms", "P99 ms", "错误率 %", "60 秒内回源次数", "连接池 active 峰值", "连接池 pending 峰值"], rows)
+                + "\n\n这批 raw 没有按场景拆开的 `http_reqs`。QPS 是整次运行的请求速率。P50 / P99 来自 `scenario:reads`。")
 
     # 穿透
     rows = []
@@ -151,33 +122,28 @@ def main():
     # 雪崩
     rows = []
     for name, case in [("TTL 不抖动", "avalanche-nojitter"), ("TTL + 0~30 秒抖动", "avalanche-jitter")]:
-        h = http(case, "{scenario:reads}")
+        h = http(case, "{scenario:reads}", traffic_tag="")
         if h is None:
             continue
         rows.append([name, f(h[0], 0), f(h[1], 2), f(h[2], 1), f(h[3], 2),
                      f(prom(case, "cache_db_load_rate_max"), 0), f(prom(case, "hikari_pending_max"), 0)])
     if rows:
-        section("缓存雪崩：3000 个 key 在 5 秒内写入、TTL 30 秒，之后均匀读 90 秒（200 VU）",
-                table(["版本", "QPS", "P50 ms", "P99 ms", "错误率 %", "回源速率峰值 /s", "连接池 pending 峰值"], rows))
+        section("缓存雪崩（历史脚本观测，全程 QPS，不是 5 秒写完 3000 个 key）",
+                table(["版本", "全程 QPS", "P50 ms", "P99 ms", "错误率 %", "回源速率峰值 /s", "连接池 pending 峰值"], rows)
+                + "\n\n上表来自旧脚本的 raw。QPS 是整次运行的请求速率，含预热。"
+                  "raw 里没有成功预热的唯一 key 数，不能证明 3000 个 key 在 5 秒内写完。"
+                  "新脚本把预热上限记成 30 秒，读从第 10 秒开始、持续 90 秒；"
+                  "有 `extra.scenarioWindows` 时场景 QPS 另算。这次没有新的实测。")
 
     ab("热 key：所有请求打同一个 key（200 VU）",
-       [("只用 Redis", "hotkey-redis"), ("热 key 进本地 Caffeine", "hotkey-local")], db=False)
+       [("只用 Redis", "hotkey-redis"), ("热 key 进本地 Caffeine", "hotkey-local")])
 
     # ---------- 四个主场景 ----------
-    def main_ab(title, naive, opt, tag="", extra=None, pre=None):
-        rows = []
-        cases = ([("朴素版（修慢 SQL 之前，无 idx_video_like）", pre)] if pre else []) + [("朴素版", naive), ("优化版", opt)]
-        for name, case in cases:
-            h = http(case, tag)
-            if h is None:
-                continue
-            row = [name, f(h[0], 0), f(h[1], 2), f(h[2], 1), f(h[3], 2)]
-            if extra:
-                row += [fn(case) for _, fn in extra]
-            rows.append(row)
-        if rows:
-            head = ["版本", "QPS", "P50 ms", "P99 ms", "错误率 %"] + ([n for n, _ in extra] if extra else [])
-            section(title, table(head, rows))
+    def main_ab(title, naive, opt, tag="", extra=(), pre=None):
+        cases = [("朴素版", naive), ("优化版", opt)]
+        if pre:
+            cases.insert(0, ("朴素版（修慢 SQL 之前，无 idx_video_like）", pre))
+        ab(title, cases, tag, extra)
 
     main_ab("场景 1：热点视频读评论（Zipf 流量，200 VU，60 秒）", "read-hot-naive", "read-hot-optimized", pre="read-hot-naive-noindex",
             extra=[("MySQL 平均 QPS", lambda c: f(prom(c, "mysql_qps_avg"), 0)),

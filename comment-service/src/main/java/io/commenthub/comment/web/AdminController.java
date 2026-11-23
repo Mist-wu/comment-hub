@@ -45,8 +45,7 @@ public class AdminController {
     /** 局部更新：只传要改的字段，例如 {"breakdown":"NONE","ttlJitterSeconds":0} */
     @PostMapping("/toggles")
     public Toggles set(@RequestBody Map<String, Object> patch) throws Exception {
-        om.readerForUpdating(toggles).readValue(om.writeValueAsBytes(patch));
-        return toggles;
+        return om.updateValue(toggles, patch);
     }
 
     @PostMapping("/hot-rank/rebuild")

@@ -94,8 +94,7 @@ public class ChatController {
     /** 局部更新，例如 {"latencyMs":10000,"errorRate":0.5} */
     @PostMapping("/admin/config")
     public FaultConfig set(@RequestBody Map<String, Object> patch) throws Exception {
-        om.readerForUpdating(cfg).readValue(om.writeValueAsBytes(patch));
-        return cfg;
+        return om.updateValue(cfg, patch);
     }
 
     private static String between(String s, String a, String b) {

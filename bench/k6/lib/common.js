@@ -5,7 +5,7 @@ export const BASE = __ENV.BASE || 'http://localhost:8080';
 export const GATEWAY = __ENV.GATEWAY || 'http://localhost:8081';
 export const MOCK = __ENV.MOCK || 'http://localhost:8000';
 export const VIDEOS = parseInt(__ENV.VIDEOS || '10000');
-export const ZIPF_S = parseFloat(__ENV.ZIPF_S || '1.1');
+const ZIPF_S = parseFloat(__ENV.ZIPF_S || '1.1');
 
 let cdf = null;
 function buildCdf() {
@@ -24,10 +24,19 @@ export function zipfVideo() {
   return lo + 1;
 }
 
-export function toggles(patch) {
-  const r = http.post(`${BASE}/admin/toggles`, JSON.stringify(patch), { headers: { 'Content-Type': 'application/json' }, tags: { name: 'admin' } });
+const toggleUrl = `${BASE}/admin/toggles`;
+
+export function overrideToggles(patch) {
+  const before = http.get(toggleUrl, { tags: { name: 'admin' } });
+  if (before.status !== 200) throw new Error(`get toggles failed: ${before.status}`);
+  const previous = before.json();
+  setToggles(patch);
+  return Object.fromEntries(Object.keys(patch).map(key => [key, previous[key]]));
+}
+
+export function setToggles(patch) {
+  const r = admin(toggleUrl, patch);
   if (r.status !== 200) throw new Error(`toggles failed: ${r.status} ${r.body}`);
-  return JSON.parse(r.body);
 }
 
 export function admin(url, body) {

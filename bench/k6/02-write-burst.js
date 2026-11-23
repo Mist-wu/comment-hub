@@ -22,4 +22,4 @@ export default function () {
   check(r, { created: (res) => res.status === 201 });
 }
 
-export function handleSummary(d) { return summary(d); }
+export { summary as handleSummary };

@@ -36,8 +36,7 @@ public class AdminController {
 
     @PostMapping("/toggles")
     public GatewayToggles set(@RequestBody Map<String, Object> patch) throws Exception {
-        om.readerForUpdating(toggles).readValue(om.writeValueAsBytes(patch));
-        return toggles;
+        return om.updateValue(toggles, patch);
     }
 
     @GetMapping("/breaker")

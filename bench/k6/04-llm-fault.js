@@ -59,4 +59,4 @@ export function probe() {
   sleep(1);
 }
 
-export function handleSummary(d) { return summary(d); }
+export { summary as handleSummary };

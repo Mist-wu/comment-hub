@@ -4,6 +4,7 @@ import io.commenthub.ai.v1.AiGatewayGrpc;
 import io.commenthub.common.trace.GrpcTraceInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,11 +30,16 @@ public class KafkaConfig {
     @Bean
     DefaultErrorHandler errorHandler(KafkaTemplate<String, String> template) {
         DeadLetterPublishingRecoverer dlt = new DeadLetterPublishingRecoverer(template,
-                (rec, ex) -> new TopicPartition(rec.topic() + "-dlt", rec.partition()));
+                (rec, ex) -> deadLetter(rec));
         DefaultErrorHandler h = new DefaultErrorHandler(dlt, new FixedBackOff(1000L, 3L));
         h.setRetryListeners((rec, ex, attempt) ->
                 log.warn("retry topic={} offset={} attempt={} err={}", rec.topic(), rec.offset(), attempt, ex.toString()));
         return h;
+    }
+
+    /** 死信发到 {原 topic}-dlt 的原分区。重放端订阅同一个名字。 */
+    static TopicPartition deadLetter(ConsumerRecord<?, ?> rec) {
+        return new TopicPartition(DltNames.topic(rec.topic()), rec.partition());
     }
 
     @Bean
@@ -46,7 +52,7 @@ public class KafkaConfig {
         return f;
     }
 
-    /** 点赞落库用批量监听：一次拉一批，按评论合并成一条 UPDATE。 */
+    /** 批量监听工厂：counter、moderation、like-flush 共用，一次拉一批合并处理。 */
     @Bean
     ConcurrentKafkaListenerContainerFactory<String, String> batchFactory(
             ConcurrentKafkaListenerContainerFactoryConfigurer configurer, ConsumerFactory<Object, Object> cf, DefaultErrorHandler eh) {

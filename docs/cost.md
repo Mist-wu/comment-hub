@@ -47,7 +47,7 @@ hard 集各类的 precision / recall：
 - 谐音、变体一条都拦不住：REJECT 和 REVIEW 的 recall 都是 0。
 - 含关键词的正常评论被误伤：20 条 PASS 里有 6 条被判成 REJECT 或 REVIEW。
 
-所以降级时规则兜底只用来“送人工复核”，不直接删评论，见 `design.md` 第 5 节。
+所以降级时规则兜底只用于临时顶上：命中明显辱骂/诈骗词给 `REJECT`、疑似引流送 `REVIEW`，且置信度固定置低，方便事后复审（见 [design.md 第 6 节](design.md#6-ai-gateway)）。
 
 模型在 sample 集上错了 8 条：
 

@@ -18,12 +18,12 @@ public class Dedup {
         this.jdbc = jdbc;
     }
 
-    /** 返回 true 表示第一次见到这个事件。 */
-    public boolean firstTime(String consumer, String eventId) {
-        return jdbc.update("INSERT IGNORE INTO consumed_event (consumer, event_id) VALUES (?, ?)", consumer, eventId) == 1;
-    }
-
-    /** 批量版：返回这批里第一次见到的事件 ID。同一分区只有一个消费者线程，先查后插不会有竞争。 */
+    /**
+     * 返回这批里第一次见到的事件 ID。
+     * CommentCreated 的 key 是 videoId，同一个 eventId 会进同一个分区，分区内只有一个消费者线程，先查后插没有竞争。
+     * 生产配置开了 rewriteBatchedStatements，批量 INSERT IGNORE 的返回值不能用来区分哪一行真正插入。
+     * 如果同一个 eventId 被用不同的 key 投到两个分区，两笔事务可能都认为自己是第一次。
+     */
     public Set<String> firstTimeBatch(String consumer, Collection<String> eventIds) {
         if (eventIds.isEmpty()) return Set.of();
         String in = String.join(",", Collections.nCopies(eventIds.size(), "?"));

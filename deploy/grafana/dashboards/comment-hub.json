@@ -41,7 +41,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri!~\"/actuator.*\"}[30s])) by (uri)",
+     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri=~\"/api/.*\"}[30s])) by (uri)",
      "legendFormat": "__auto"
     }
    ]
@@ -78,7 +78,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"comment-service\",uri!~\"/actuator.*\"}[30s])) by (le, uri))",
+     "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"comment-service\",uri=~\"/api/.*\"}[30s])) by (le, uri))",
      "legendFormat": "__auto"
     }
    ]
@@ -115,7 +115,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",status=~\"5..\"}[30s])) / clamp_min(sum(rate(http_server_requests_seconds_count{application=\"comment-service\"}[30s])), 1)",
+     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri=~\"/api/.*\",status=~\"5..\"}[30s])) / sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri=~\"/api/.*\"}[30s]))",
      "legendFormat": "__auto"
     }
    ]
@@ -226,7 +226,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "histogram_quantile(0.99, sum(rate(hikaricp_connections_acquire_seconds_bucket[30s])) by (le, application)) or max(hikaricp_connections_acquire_seconds_max) by (application)",
+     "expr": "histogram_quantile(0.99, sum(rate(hikaricp_connections_acquire_seconds_bucket[30s])) by (le, application))",
      "legendFormat": "__auto"
     }
    ]
@@ -374,8 +374,13 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "hub_ai_bulkhead_available or hub_ai_token_budget_available / 1000",
-     "legendFormat": "__auto"
+     "expr": "hub_ai_bulkhead_available",
+     "legendFormat": "bulkhead available"
+    },
+    {
+     "refId": "B",
+     "expr": "hub_ai_token_budget_available / 1000",
+     "legendFormat": "token budget (k)"
     }
    ]
   },
@@ -485,8 +490,13 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "rate(mysql_global_status_slow_queries[30s]) or label_replace(rate(mysql_global_status_innodb_row_lock_waits[30s]), \"__name__\", \"row_lock_waits\", \"\", \"\")",
-     "legendFormat": "__auto"
+     "expr": "rate(mysql_global_status_slow_queries[30s])",
+     "legendFormat": "slow queries/s"
+    },
+    {
+     "refId": "B",
+     "expr": "rate(mysql_global_status_innodb_row_lock_waits[30s])",
+     "legendFormat": "row lock waits/s"
     }
    ]
   },
@@ -522,8 +532,13 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "mysql_global_status_threads_running or rate(mysql_global_status_queries[30s]) / 100",
-     "legendFormat": "__auto"
+     "expr": "mysql_global_status_threads_running",
+     "legendFormat": "threads_running"
+    },
+    {
+     "refId": "B",
+     "expr": "rate(mysql_global_status_queries[30s]) / 100",
+     "legendFormat": "QPS / 100"
     }
    ]
   },

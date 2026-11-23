@@ -1,5 +1,6 @@
 package io.commenthub.comment.web;
 
+import io.commenthub.comment.cache.CacheBusyException;
 import io.commenthub.comment.domain.CommentView;
 import io.commenthub.comment.domain.Page;
 import io.commenthub.comment.service.*;
@@ -74,8 +75,8 @@ public class CommentController {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));
     }
 
-    @ExceptionHandler(io.commenthub.comment.cache.CacheBusyException.class)
-    public ResponseEntity<Map<String, String>> busy(io.commenthub.comment.cache.CacheBusyException e) {
+    @ExceptionHandler(CacheBusyException.class)
+    public ResponseEntity<Map<String, String>> busy(CacheBusyException e) {
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).header("Retry-After", "1").body(Map.of("error", e.getMessage()));
     }
 

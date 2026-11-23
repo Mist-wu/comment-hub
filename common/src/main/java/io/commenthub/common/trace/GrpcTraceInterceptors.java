@@ -6,7 +6,6 @@ import io.grpc.*;
 public final class GrpcTraceInterceptors {
     public static final Metadata.Key<String> TRACE_KEY =
             Metadata.Key.of(Trace.GRPC_KEY, Metadata.ASCII_STRING_MARSHALLER);
-    public static final Context.Key<String> CTX_TRACE = Context.key("traceId");
 
     private GrpcTraceInterceptors() {}
 
@@ -33,8 +32,7 @@ public final class GrpcTraceInterceptors {
                 String id = headers.get(TRACE_KEY);
                 if (id == null) id = Trace.newId();
                 final String traceId = id;
-                Context ctx = Context.current().withValue(CTX_TRACE, traceId);
-                ServerCall.Listener<Q> delegate = Contexts.interceptCall(ctx, call, headers, next);
+                ServerCall.Listener<Q> delegate = next.startCall(call, headers);
                 // 每个回调都在可能不同的线程上执行，所以每次都设置 MDC
                 return new ForwardingServerCallListener.SimpleForwardingServerCallListener<>(delegate) {
                     @Override public void onMessage(Q message) { try (var s = Trace.open(traceId)) { super.onMessage(message); } }

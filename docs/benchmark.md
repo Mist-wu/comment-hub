@@ -2,6 +2,8 @@
 
 所有数字都来自同一台机器、同一份数据，用 k6 压测，每个用例跑 3 次取中位数。
 
+`bench/results/summary.tsv` 仍是当时按 case 追加的历史文件，没有用新口径重写。旧脚本在缺少场景计数时，会把整次运行的 QPS 填进场景行。现在的 `report.py` 不再这么填：场景行缺计数就留空，全程 QPS 留在不带 tag 的那一行。按现有 raw 重算会得到 50 行，比历史文件多出的 4 行是 `hot-sort-db-noindex` 和 `read-hot-naive-noindex`，raw 一直在，只是当时没写进 TSV。这次没有新的压测。
+
 - 每一格都能在 `bench/results/raw/<用例>/run-N.json` 里找到原始值。
 - 表格由 `bench/render.py` 生成，见 `bench/results/tables.md`。
 - 服务端指标（连接池、Kafka 积压、行锁等待等）在每次运行结束后从 Prometheus 按该次的时间窗口取，同样取中位数。
@@ -18,7 +20,7 @@
 | JDK | Temurin 21.0.13，G1；comment-service `-Xmx1g`，Tomcat 最大 200 线程，Hikari 30 连接 |
 | MySQL | 8.4.3，buffer pool 2G，`innodb_flush_log_at_trx_commit=1`，`sync_binlog=1`，REPEATABLE READ |
 | Redis | 7.4.1，单实例 |
-| Kafka | 3.8.1，KRaft 单节点，每个 topic 3 个分区 |
+| Kafka | 3.8.1，KRaft 单节点，每个 topic 6 个分区，consumer 并发 3 线程 |
 | 模型 | 全部压测都打 mock-llm（默认延迟 300±200ms），不调真模型；真模型的评估和费用见 [cost.md](cost.md) |
 
 数据是**生成的**（`datagen`）：
@@ -55,7 +57,7 @@
 RUNS=3 bench/run.sh pagination bench/k6/10-pagination.js
 ```
 
-### LIMIT offset vs 游标分页（视频 1，约 151 万条评论，10 VU，不走缓存）
+条件：视频 1（约 151 万条评论），10 VU，不走缓存。
 
 | 页码 | offset P50 ms | offset P99 ms | 游标 P50 ms | 游标 P99 ms | P99 offset÷游标 |
 |---|---|---|---|---|---|
@@ -92,7 +94,7 @@ bench/run.sh hot-sort-db bench/k6/11-hot-sort.js MODE=DB
 bench/run.sh hot-sort-zset bench/k6/11-hot-sort.js MODE=ZSET
 ```
 
-### 最热排序（前 100 个视频，50 VU，不走页缓存）
+条件：前 100 个视频，50 VU，不走页缓存。
 
 | 版本 | QPS | P50 ms | P99 ms | 错误率 % | MySQL 平均 QPS |
 |---|---|---|---|---|---|
@@ -120,10 +122,10 @@ bench/run.sh hot-sort-zset bench/k6/11-hot-sort.js MODE=ZSET
 ### 2.1 缓存击穿
 
 ```bash
-for m in NONE MUTEX LOGICAL; do bench/run.sh "breakdown-${m,,}" bench/k6/12-breakdown.js MODE=$m; done
+for m in NONE MUTEX LOGICAL; do bench/run.sh "breakdown-$(echo "$m" | tr A-Z a-z)" bench/k6/12-breakdown.js MODE=$m; done
 ```
 
-### 缓存击穿：热点 key 每 10 秒过期一次（300 VU 打同一个 key，回源是 151 万行 filesort）
+条件：热点 key 每 10 秒过期一次，300 VU 打同一个 key，回源是 151 万行 filesort。
 
 | 版本 | QPS | P50 ms | P99 ms | 错误率 % | 60 秒内回源次数 | 连接池 active 峰值 | 连接池 pending 峰值 |
 |---|---|---|---|---|---|---|---|
@@ -139,7 +141,7 @@ for m in NONE MUTEX LOGICAL; do bench/run.sh "breakdown-${m,,}" bench/k6/12-brea
 
 ### 2.2 缓存穿透
 
-### 缓存穿透：一半请求查不存在的视频（200 VU）
+条件：一半请求查不存在的视频，200 VU。
 
 | 版本 | 总 QPS | 不存在视频 P99 ms | 正常视频 P99 ms | MySQL 平均 QPS |
 |---|---|---|---|---|
@@ -152,14 +154,18 @@ for m in NONE MUTEX LOGICAL; do bench/run.sh "breakdown-${m,,}" bench/k6/12-brea
 
 ### 2.3 缓存雪崩
 
-### 缓存雪崩：3000 个 key 在 5 秒内写入、TTL 30 秒，之后均匀读 90 秒（200 VU）
+下面的表是旧脚本的历史观测，不是这次重跑的结果。旧 raw 没有记下成功预热的唯一 key 数。不能用它证明 3000 个 key 在 5 秒内写完。表里的 QPS 是整次运行的请求速率，预热也算在里面。
 
-| 版本 | QPS | P50 ms | P99 ms | 错误率 % | 回源速率峰值 /s | 连接池 pending 峰值 |
+历史对照：不抖动的回源峰值是 567/s，抖动后是 325/s。
+
+| 版本 | 全程 QPS | P50 ms | P99 ms | 错误率 % | 回源速率峰值 /s | 连接池 pending 峰值 |
 |---|---|---|---|---|---|---|
 | TTL 不抖动 | 11,838 | 11.55 | 51.4 | 0.00 | 567 | 131 |
 | TTL + 0~30 秒抖动 | 13,029 | 12.03 | 38.8 | 0.00 | 325 | 146 |
 
-抖动把回源速率的峰值从 567/s 压到了 325/s，P99 从 51ms 降到 39ms。但效果没有预期大，连接池 pending 峰值也没降。原因有两点：
+新脚本是 `bench/k6/14-avalanche.js`。预热最多 30 秒，读从第 10 秒开始，持续 90 秒。预热请求检查 HTTP 200 和非空评论页。`checks{scenario:warm}` 的成功次数可与计划 key 数对照。一次新运行的 summary 里有 `plannedKeys`、`warmMaxDurationSec`、`readsStartSec`、`readsDurationSec`。场景 QPS 用读阶段的请求数除以 90 秒，和全程 QPS 分开。这次没有重跑压测，所以没有新的实测数字。
+
+抖动把回源速率的峰值从 567/s 压到了 325/s，P99 从 51ms 降到 39ms。这组对比只描述旧脚本的观测。效果没有预期大，连接池 pending 峰值也没降。原因有两点：
 
 - 这 3000 个 key 对应 3000 个不同的视频，每个视频的回源都很便宜（走索引取 20 行）；
 - 每个 key 都有互斥锁，同一个 key 不会重复回源。
@@ -168,7 +174,7 @@ for m in NONE MUTEX LOGICAL; do bench/run.sh "breakdown-${m,,}" bench/k6/12-brea
 
 ### 2.4 热 key：本地缓存
 
-### 热 key：所有请求打同一个 key（200 VU）
+条件：所有请求打同一个 key，200 VU。
 
 | 版本 | QPS | P50 ms | P99 ms | 错误率 % |
 |---|---|---|---|---|
@@ -187,7 +193,7 @@ bench/all.sh main
 
 ### 场景 1：热点视频读评论
 
-### 场景 1：热点视频读评论（Zipf 流量，200 VU，60 秒）
+条件：Zipf 流量，200 VU，60 秒。
 
 | 版本 | QPS | P50 ms | P99 ms | 错误率 % | MySQL 平均 QPS | 连接池 pending 峰值 |
 |---|---|---|---|---|---|---|
@@ -213,7 +219,7 @@ bench/all.sh main
 
 ### 场景 2：突发写评论
 
-### 场景 2：突发写评论（10 秒内拉到 3000/s，保持 30 秒）
+条件：10 秒内拉到 3000/s，保持 30 秒。
 
 | 版本 | QPS | P50 ms | P99 ms | 错误率 % | Kafka 积压峰值 | 计数端到端 P99 s | 审核端到端 P99 s | 行锁等待次数 |
 |---|---|---|---|---|---|---|---|---|
@@ -238,7 +244,7 @@ bench/all.sh main
 
 ### 场景 3：点赞风暴
 
-### 场景 3：点赞风暴（200 VU 点同一条评论，30 秒）
+条件：200 VU 点同一条评论，30 秒。
 
 | 版本 | QPS | P50 ms | P99 ms | 错误率 % | 行锁等待次数 | 行锁等待总时长 ms | Kafka 积压峰值 | 落库端到端 P99 s | 落库事件 / UPDATE 行数 |
 |---|---|---|---|---|---|---|---|---|---|
@@ -255,7 +261,7 @@ bench/all.sh main
 K6_DOCKER=1 bench/run.sh llm-fault-optimized bench/k6/04-llm-fault.js
 ```
 
-### 场景 4：模型故障（读 800/s + 写 30/s，第 30~120 秒 mock-llm 延迟 10 秒、错误率 50%）
+条件：读 800/s + 写 30/s，第 30~120 秒 mock-llm 延迟 10 秒、错误率 50%。
 
 | 版本 | 读 QPS | 读 P50 ms | 读 P99 ms | 错误率 % | 写接口 P99 ms | Tomcat 忙线程峰值 |
 |---|---|---|---|---|---|---|
@@ -263,7 +269,7 @@ K6_DOCKER=1 bench/run.sh llm-fault-optimized bench/k6/04-llm-fault.js
 | 优化版 | 798 | 0.67 | 5.3 | 0.00 | 7.4 | 6 |
 
 - **朴素版**：读评论时同步等摘要，摘要同步等模型，各层都不设超时。Tomcat 200 个线程全部卡住，读 P99 18.9 秒，发评论也要等 9.8 秒，读流量只能跑到目标的 74%。
-- **优化版**：摘要的 deadline 是 150ms，网关异步生成摘要，读请求根本不等模型。
+- **优化版**：摘要的 deadline 是 150ms，网关异步生成摘要，读请求根本不等模型。三次运行的 Tomcat 忙线程峰值是 6、22、5，表里的 6 是这三次的中位数，不是单次测量。
 
 熔断器的状态变化（3 次运行一致）：
 
@@ -310,7 +316,7 @@ docker compose up -d
 docker compose --profile datagen run --rm datagen       # 约 5 分钟
 bench/all.sh micro                                      # 专项对比，约 60 分钟
 bench/all.sh main                                       # 四个主场景，约 40 分钟
-.venv/bin/python bench/render.py > bench/results/tables.md
+python3 bench/render.py > bench/results/tables.md
 ```
 
 `bench/explain.sh` 收集 EXPLAIN ANALYZE。`scripts/incidents/0N-*.sh` 复现三篇事故复盘。
