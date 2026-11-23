@@ -9,9 +9,9 @@
 # 为了复现当时的状态，脚本先删掉 idx_video_like，结束时再建回来。
 source "$(dirname "$0")/lib.sh"
 EV=docs/incidents/evidence/03; rm -rf "$EV"; mkdir -p "$EV"
-reset_all
+reset_toggles
+add_exit_hook 'my -e "ALTER TABLE comment ADD KEY idx_video_like (video_id, like_count, id, status)"'
 my -e "ALTER TABLE comment DROP INDEX idx_video_like" || true
-trap 'my -e "ALTER TABLE comment ADD KEY idx_video_like (video_id, like_count, id, status)" || true; reset_all' EXIT
 export VUS=300
 
 lines() { echo $(( $(wc -l < logs/comment-service.log) + 1 )); }
@@ -28,7 +28,7 @@ phase() {  # phase <名字> <MODE> [结束后等待秒数]
     "$(grep -c 'mutex wait timeout' "$EV/comment-service-$name.log" || true)" | tee -a "$EV/summary.txt"
   # 这一阶段的慢查询，按 SQL 指纹聚合（慢查询日志按结束时间记录，阶段结束时还在跑的会算到下一阶段）
   docker compose exec -T mysql sh -c 'cat /var/log/mysql/slow.log' 2>/dev/null \
-    | awk -v a="$(date -u -r "$t0" +%Y-%m-%dT%H:%M:%S)" '/^# Time: /{p=(substr($3,1,19)>=a)} p' > "$EV/slow-$name.log"
+    | awk -v a="$(utc_stamp "$t0")" '/^# Time: /{p=(substr($3,1,19)>=a)} p' > "$EV/slow-$name.log"
   awk '/^# Query_time/{qt=$3; for(i=1;i<=NF;i++) if($i=="Rows_examined:") re=$(i+1); getline; while($0 ~ /^(SET|use)/) getline;
        s=$0; gsub(/[0-9]+/,"N",s); n[s]++; t[s]+=qt; r[s]+=re}
        END{for(s in n) printf "%5d %8.1fs avg_query_time=%.2fs avg_rows_examined=%d  %s\n", n[s], t[s], t[s]/n[s], r[s]/n[s], substr(s,1,120)}' \

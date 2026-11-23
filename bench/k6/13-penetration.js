@@ -24,5 +24,5 @@ export default function () {
   }
 }
 
-export function teardown() { toggles({ penetration: 'BLOOM' }); }
+export function teardown() { toggles({ penetration: 'BLOOM', summaryEnabled: true }); }
 export function handleSummary(d) { return summary(d); }

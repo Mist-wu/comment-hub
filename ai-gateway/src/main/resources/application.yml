@@ -44,6 +44,9 @@ management:
       exposure:
         include: health,prometheus,metrics
   metrics:
+    distribution:
+      percentiles-histogram:
+        hikaricp.connections.acquire: true
     tags:
       application: ai-gateway
 

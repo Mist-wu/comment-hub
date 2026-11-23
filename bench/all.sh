@@ -3,6 +3,7 @@
 # 用法：bench/all.sh            全部
 #       bench/all.sh main       只跑四个主场景
 #       bench/all.sh micro      只跑专项对比
+#       bench/all.sh llm_fault  只跑场景 4（模型故障）
 set -euo pipefail
 cd "$(dirname "$0")"
 what="${1:-all}"
@@ -21,8 +22,12 @@ main() {
   # 场景 3：点赞风暴
   CS='{"likeMode":"DB"}' $R like-storm-naive k6/03-like-storm.js
   $R like-storm-optimized k6/03-like-storm.js
-  # 场景 4：模型故障（朴素版：摘要同步等模型、不设超时、无熔断无舱壁）
-  export K6_DOCKER=1   # 见 run.sh
+  llm_fault
+}
+
+# 场景 4 单独入口（原先的 bench/rerun.sh）。k6 在 Colima VM 里跑，见 run.sh 的 K6_DOCKER。
+llm_fault() {
+  export K6_DOCKER=1
   CS='{"summaryDeadlineMs":0}' GW='{"summaryAsync":false,"llmTimeoutMs":0,"bulkheadEnabled":false,"circuitBreakerEnabled":false,"rateLimitEnabled":false}' \
     $R llm-fault-naive k6/04-llm-fault.js
   $R llm-fault-optimized k6/04-llm-fault.js
@@ -44,6 +49,7 @@ micro() {
 case "$what" in
   main) main ;;
   micro) micro ;;
+  llm_fault) llm_fault ;;
   all) micro; main ;;
-  *) "$what" ;;
+  *) echo "用法: bench/all.sh [all|main|micro|llm_fault]" >&2; exit 1 ;;
 esac

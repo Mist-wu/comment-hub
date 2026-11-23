@@ -27,27 +27,67 @@ def med(xs):
 
 
 def http(case, tag=""):
-    """返回 (qps, p50, p99, err%)，tag 形如 '{scenario:reads}'。"""
+    """返回 (全程 qps, p50, p99, err%)。tag 形如 '{scenario:reads}'。
+
+    全程 QPS 用 k6 的 rate。带 tag 时缺了同名 http_reqs / http_req_failed 就留空，
+    不用无 tag 的总量填进这一行。场景 QPS 见 scenario_qps。
+    """
     rs = runs(case)
     if not rs:
         return None
     q, p50, p99, err = [], [], [], []
     for r in rs:
         m = r["metrics"]
-        d = m.get("http_req_duration" + tag) or {}
-        secs = r["state"]["testRunDurationMs"] / 1000
-        reqs = m.get("http_reqs" + tag) or {}
-        if not reqs and not tag:
-            reqs = m.get("http_reqs", {})
-        if not reqs:
-            # 没有按 tag 拆的请求数时用总数：这些脚本里其它场景（过期触发、预热）的请求不到 1%
-            reqs = m.get("http_reqs", {})
-        q.append(reqs.get("rate") or reqs.get("count", 0) / secs)
+        d = series(m, "http_req_duration", tag) or {}
+        reqs = series(m, "http_reqs", tag)
+        if reqs is None:
+            q.append(None)
+        elif reqs.get("rate") is not None:
+            q.append(reqs["rate"])
+        else:
+            secs = r["state"]["testRunDurationMs"] / 1000
+            q.append(reqs.get("count", 0) / secs if secs else None)
         p50.append(d.get("med"))
         p99.append(d.get("p(99)"))
-        f = m.get("http_req_failed" + tag) or ({} if tag else m.get("http_req_failed", {}))
-        err.append((f.get("rate") or 0) * 100)
+        failed = series(m, "http_req_failed", tag)
+        err.append(None if failed is None else (failed.get("rate") or 0) * 100)
     return med(q), med(p50), med(p99), med(err)
+
+
+def http_or_full(case, tag):
+    """延迟用 tag 上的直方图。QPS / 错误率优先用同 tag 的计数。
+
+    旧 raw 往往没有按场景拆开的 http_reqs。这时 QPS 和错误率改用整次运行的数字，
+    调用方要把列名写成全程，不能再把它叫成场景 QPS。
+    """
+    tagged = http(case, tag)
+    if tagged is None:
+        return None
+    full = http(case, "")
+    qps = tagged[0] if tagged[0] is not None else (full[0] if full else None)
+    err = tagged[3] if tagged[3] is not None else (full[3] if full else None)
+    return qps, tagged[1], tagged[2], err
+
+
+def series(metrics, name, tag):
+    key = name + tag if tag else name
+    if key in metrics:
+        return metrics[key]
+    return None
+
+
+def scenario_qps(case, tag):
+    """次数 / extra.scenarioWindows[tag]。旧 raw 没有窗口时返回 None。"""
+    vals = []
+    for r in runs(case):
+        windows = (r.get("extra") or {}).get("scenarioWindows") or {}
+        window = windows.get(tag)
+        reqs = series(r["metrics"], "http_reqs", tag)
+        if not window or not reqs or reqs.get("count") is None:
+            vals.append(None)
+        else:
+            vals.append(reqs["count"] / window)
+    return med(vals)
 
 
 def prom(case, key, label=None, agg=med):
@@ -127,14 +167,15 @@ def main():
     # 击穿
     rows = []
     for name, case in [("不处理", "breakdown-none"), ("互斥锁", "breakdown-mutex"), ("逻辑过期", "breakdown-logical")]:
-        h = http(case, "{scenario:reads}")
+        h = http_or_full(case, "{scenario:reads}")
         if h is None:
             continue
         rows.append([name, f(h[0], 0), f(h[1], 2), f(h[2], 1), f(h[3], 2),
                      f(prom(case, "cache_db_loads"), 0), f(prom(case, "hikari_active_max"), 0), f(prom(case, "hikari_pending_max"), 0)])
     if rows:
         section("缓存击穿：热点 key 每 10 秒过期一次（300 VU 打同一个 key，回源是 151 万行 filesort）",
-                table(["版本", "QPS", "P50 ms", "P99 ms", "错误率 %", "60 秒内回源次数", "连接池 active 峰值", "连接池 pending 峰值"], rows))
+                table(["版本", "全程 QPS", "P50 ms", "P99 ms", "错误率 %", "60 秒内回源次数", "连接池 active 峰值", "连接池 pending 峰值"], rows)
+                + "\n\n这批 raw 没有按场景拆开的 `http_reqs`。QPS 是整次运行的请求速率。P50 / P99 来自 `scenario:reads`。")
 
     # 穿透
     rows = []
@@ -151,14 +192,18 @@ def main():
     # 雪崩
     rows = []
     for name, case in [("TTL 不抖动", "avalanche-nojitter"), ("TTL + 0~30 秒抖动", "avalanche-jitter")]:
-        h = http(case, "{scenario:reads}")
+        h = http_or_full(case, "{scenario:reads}")
         if h is None:
             continue
         rows.append([name, f(h[0], 0), f(h[1], 2), f(h[2], 1), f(h[3], 2),
                      f(prom(case, "cache_db_load_rate_max"), 0), f(prom(case, "hikari_pending_max"), 0)])
     if rows:
-        section("缓存雪崩：3000 个 key 在 5 秒内写入、TTL 30 秒，之后均匀读 90 秒（200 VU）",
-                table(["版本", "QPS", "P50 ms", "P99 ms", "错误率 %", "回源速率峰值 /s", "连接池 pending 峰值"], rows))
+        section("缓存雪崩（历史脚本观测，全程 QPS，不是 5 秒写完 3000 个 key）",
+                table(["版本", "全程 QPS", "P50 ms", "P99 ms", "错误率 %", "回源速率峰值 /s", "连接池 pending 峰值"], rows)
+                + "\n\n上表来自旧脚本的 raw。QPS 是整次运行的请求速率，含预热。"
+                  "raw 里没有成功预热的唯一 key 数，不能证明 3000 个 key 在 5 秒内写完。"
+                  "新脚本把预热上限记成 30 秒，读从第 10 秒开始、持续 90 秒；"
+                  "有 `extra.scenarioWindows` 时场景 QPS 另算。这次没有新的实测。")
 
     ab("热 key：所有请求打同一个 key（200 VU）",
        [("只用 Redis", "hotkey-redis"), ("热 key 进本地 Caffeine", "hotkey-local")], db=False)

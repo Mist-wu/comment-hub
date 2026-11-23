@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -31,6 +32,47 @@ public class HotRankJob {
 
     public static String key(long videoId) {
         return "hot:z:" + videoId;
+    }
+
+    public static String metaKey(long videoId) {
+        return key(videoId) + ":meta";
+    }
+
+    /** 固定 20 位，ZREVRANGE 的字典序倒序才和数值 id DESC 一致。旧榜单里的 "99" 仍能 parse。 */
+    public static String member(long id) {
+        return String.format(Locale.ROOT, "%020d", id);
+    }
+
+    public static long parseMember(String member) {
+        return Long.parseLong(member);
+    }
+
+    public static boolean isPadded(String member) {
+        if (member == null || member.length() != 20) return false;
+        for (int i = 0; i < member.length(); i++) {
+            char c = member.charAt(i);
+            if (c < '0' || c > '9') return false;
+        }
+        return true;
+    }
+
+    /** meta 形如 {@code generation:0} 或 {@code generation:1}。没有 meta 的是旧榜单。 */
+    public static Long generation(String meta) {
+        if (meta == null) return null;
+        int i = meta.indexOf(':');
+        if (i <= 0) return null;
+        try {
+            return Long.parseLong(meta.substring(0, i));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** 写满了 topComments 才可能还有榜外的评论。旧榜单没有 meta 时，满 1000 条按写满处理。 */
+    public static boolean capped(String meta, long card) {
+        if (meta != null && meta.endsWith(":1")) return true;
+        if (meta != null && meta.endsWith(":0")) return false;
+        return card >= 1000;
     }
 
     private final VideoMapper videos;
@@ -69,20 +111,23 @@ public class HotRankJob {
 
     public int rebuild() {
         long t0 = System.currentTimeMillis();
+        long generation = t0;
         List<Long> ids = videos.topByComments(topVideos);
         for (long v : ids) {
             List<Comment> top = comments.topByLikes(v, topComments);
             if (top.isEmpty()) continue;
             Set<ZSetOperations.TypedTuple<String>> tuples = new HashSet<>();
             for (Comment c : top) {
-                // score = 点赞数；同分时按 id 排序由 ZSet 的字典序决定，足够稳定
-                tuples.add(new DefaultTypedTuple<>(String.valueOf(c.getId()), (double) c.getLikeCount()));
+                // 成员补齐到 20 位。同分时 ZREVRANGE 按字典序倒序，补齐后就是 id DESC，和 SQL 一致。
+                tuples.add(new DefaultTypedTuple<>(member(c.getId()), (double) c.getLikeCount()));
             }
             String tmp = key(v) + ":tmp";
             redis.delete(tmp);
             redis.opsForZSet().add(tmp, tuples);
             redis.rename(tmp, key(v));
             redis.expire(key(v), Duration.ofMinutes(10));
+            boolean full = top.size() >= topComments;
+            redis.opsForValue().set(metaKey(v), generation + ":" + (full ? "1" : "0"), Duration.ofMinutes(10));
         }
         log.info("hot rank rebuilt videos={} cost={}ms", ids.size(), System.currentTimeMillis() - t0);
         return ids.size();

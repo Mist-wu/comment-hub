@@ -35,6 +35,13 @@ public interface CommentMapper extends BaseMapper<Comment> {
             + "ORDER BY like_count DESC, id DESC LIMIT #{offset}, #{size}")
     List<Comment> hotOffset(@Param("videoId") long videoId, @Param("offset") long offset, @Param("size") int size);
 
+    /** 热榜翻出 ZSet 之后按点赞数和 id 续页，不靠 offset 对齐两套顺序。 */
+    @Select("SELECT " + COLS + " FROM comment WHERE video_id = #{videoId} AND status <> 3 "
+            + "AND (like_count < #{like} OR (like_count = #{like} AND id < #{id})) "
+            + "ORDER BY like_count DESC, id DESC LIMIT #{size}")
+    List<Comment> hotAfter(@Param("videoId") long videoId, @Param("like") long like,
+                           @Param("id") long id, @Param("size") int size);
+
     /** 构建最热 ZSet 用：只取 id 和 like_count，减少回表数据量。 */
     @Select("SELECT id, like_count FROM comment WHERE video_id = #{videoId} AND status <> 3 "
             + "ORDER BY like_count DESC, id DESC LIMIT #{size}")

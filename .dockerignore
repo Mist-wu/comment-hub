@@ -2,5 +2,11 @@
 .git
 .idea
 logs
-bench/results
 .env
+.venv
+bench
+docs
+scripts
+eval
+deploy
+*.md

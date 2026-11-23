@@ -11,6 +11,7 @@ import io.commenthub.comment.config.Toggles;
 import io.commenthub.comment.domain.Page;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.Cursor;
@@ -51,6 +52,8 @@ public class PageCache {
     private final RedisMutex mutex;
     private final Cache<String, Page> local;
     private final ExecutorService rebuildPool = Executors.newVirtualThreadPerTaskExecutor();
+    /** 停机最多等这么久。慢回源可能停不掉，到点就返回，避免卡住 Spring 关闭。 */
+    Duration shutdownWait = Duration.ofSeconds(5);
     private final Counter localHit, redisHit, miss, dbLoad, lockWait, lockTimeout;
 
     public PageCache(StringRedisTemplate redis, ObjectMapper om, Toggles toggles, HotKeyDetector hotKeys,
@@ -73,7 +76,6 @@ public class PageCache {
                         return cur;
                     }
                 })
-                .recordStats()
                 .build();
         this.localHit = Counter.builder("hub.cache").tag("result", "local_hit").register(meters);
         this.redisHit = Counter.builder("hub.cache").tag("result", "redis_hit").register(meters);
@@ -81,6 +83,18 @@ public class PageCache {
         this.dbLoad = Counter.builder("hub.cache.db_load").register(meters);
         this.lockWait = Counter.builder("hub.cache.lock_wait").register(meters);
         this.lockTimeout = Counter.builder("hub.cache.lock_timeout").register(meters);
+    }
+
+    @PreDestroy
+    void shutdown() {
+        rebuildPool.shutdownNow();
+        try {
+            if (!rebuildPool.awaitTermination(shutdownWait.toMillis(), TimeUnit.MILLISECONDS)) {
+                log.warn("cache rebuild pool did not stop within {}ms", shutdownWait.toMillis());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public Page get(String key, Supplier<Page> loader) {
@@ -110,10 +124,10 @@ public class PageCache {
 
     // ---------- 朴素版：未命中就回源 ----------
     private Page plain(String key, Supplier<Page> loader) {
-        String raw = redis.opsForValue().get(key);
-        if (raw != null) {
+        Page hit = freshPage(redis.opsForValue().get(key));
+        if (hit != null) {
             redisHit.increment();
-            return decode(raw);
+            return hit;
         }
         miss.increment();
         Page p = load(loader);
@@ -125,18 +139,18 @@ public class PageCache {
     private Page withMutex(String key, Supplier<Page> loader) {
         String lockKey = "lock:" + key;
         for (int attempt = 0; attempt < 100; attempt++) {
-            String raw = redis.opsForValue().get(key);
-            if (raw != null) {
+            Page hit = freshPage(redis.opsForValue().get(key));
+            if (hit != null) {
                 redisHit.increment();
-                return decode(raw);
+                return hit;
             }
             String token = mutex.tryLock(lockKey, Duration.ofMillis(toggles.mutexLockTtlMs));
             if (token != null) {
                 try {
-                    String again = redis.opsForValue().get(key); // double check
+                    Page again = freshPage(redis.opsForValue().get(key)); // double check
                     if (again != null) {
                         redisHit.increment();
-                        return decode(again);
+                        return again;
                     }
                     miss.increment();
                     Page p = load(loader);
@@ -168,11 +182,8 @@ public class PageCache {
             return withMutexLogicalInit(key, loader);
         }
         redisHit.increment();
-        if (!raw.startsWith("{\"e\":")) return decode(raw); // 切换模式前留下的普通值
-        JsonNode node = readTree(raw);
-        long expireAt = node.get("e").asLong();
-        Page p = om.convertValue(node.get("d"), Page.class);
-        if (System.currentTimeMillis() > expireAt) {
+        Stored stored = interpret(raw);
+        if (stored.logical() && stored.expired()) {
             String lockKey = "lock:" + key;
             String token = mutex.tryLock(lockKey, Duration.ofMillis(toggles.mutexLockTtlMs));
             if (token != null) {
@@ -187,7 +198,7 @@ public class PageCache {
                 });
             }
         }
-        return p;
+        return stored.page();
     }
 
     private Page withMutexLogicalInit(String key, Supplier<Page> loader) {
@@ -197,7 +208,7 @@ public class PageCache {
             if (token != null) {
                 try {
                     String again = redis.opsForValue().get(key);
-                    if (again != null) return om.convertValue(readTree(again).get("d"), Page.class);
+                    if (again != null) return interpret(again).page();
                     Page p = load(loader);
                     writeLogical(key, p);
                     return p;
@@ -207,7 +218,7 @@ public class PageCache {
             }
             sleep(20);
             String raw = redis.opsForValue().get(key);
-            if (raw != null) return om.convertValue(readTree(raw).get("d"), Page.class);
+            if (raw != null) return interpret(raw).page();
         }
         return load(loader);
     }
@@ -230,22 +241,18 @@ public class PageCache {
     }
 
     private void writeLogical(String key, Page p) {
+        int ttl = ttlSeconds();
         ObjectNode n = om.createObjectNode();
-        n.put("e", System.currentTimeMillis() + ttlSeconds() * 1000L);
+        n.put("e", System.currentTimeMillis() + ttl * 1000L);
         n.set("d", om.valueToTree(p));
         // 物理 TTL 设成逻辑 TTL 的 10 倍，长期不访问的 key 仍会被回收
-        redis.opsForValue().set(key, n.toString(), Duration.ofSeconds(ttlSeconds() * 10L));
+        redis.opsForValue().set(key, n.toString(), Duration.ofSeconds(ttl * 10L));
     }
 
     /** 基础 TTL + 随机抖动，避免同一批写入的 key 在同一秒过期（雪崩）。 */
     int ttlSeconds() {
         int jitter = toggles.ttlJitterSeconds;
         return toggles.cacheTtlSeconds + (jitter > 0 ? ThreadLocalRandom.current().nextInt(jitter + 1) : 0);
-    }
-
-    public void evict(String key) {
-        redis.delete(key);
-        local.invalidate(key);
     }
 
     public int expireAll(String prefix, int seconds) {
@@ -280,14 +287,59 @@ public class PageCache {
         return out;
     }
 
-    private Page decode(String raw) {
-        if (NULL_MARK.equals(raw)) return new Page(List.of(), null, null);
+    /**
+     * NONE / MUTEX 只接受还没过期的值。逻辑包装过期后当作未命中，马上按当前模式重建。
+     * 未过期的包装、普通页、空标记都能读。
+     */
+    private Page freshPage(String raw) {
+        if (raw == null) return null;
+        Stored stored = interpret(raw);
+        if (stored.logical() && stored.expired()) return null;
+        return stored.page();
+    }
+
+    /** 普通 JSON、空标记、逻辑包装（含已过期和空页）都解成带 items 的 Page。 */
+    private Stored interpret(String raw) {
+        if (NULL_MARK.equals(raw)) return new Stored(emptyPage(), false, false);
+        JsonNode wrapper = logicalWrapper(raw);
+        if (wrapper != null) {
+            long expireAt = wrapper.get("e").asLong();
+            return new Stored(pageFromNode(wrapper.get("d")), true, System.currentTimeMillis() > expireAt);
+        }
+        return new Stored(readPage(raw), false, false);
+    }
+
+    /** 根上同时有 e、d，且没有 items，才是逻辑过期包装。普通 Page 的根上有 items。 */
+    private JsonNode logicalWrapper(String raw) {
+        if (raw == null || !raw.startsWith("{")) return null;
+        JsonNode node = readTree(raw);
+        if (node.has("e") && node.has("d") && !node.has("items")) return node;
+        return null;
+    }
+
+    private Page pageFromNode(JsonNode data) {
+        if (data == null || data.isNull()) return emptyPage();
+        if (data.isTextual() && NULL_MARK.equals(data.asText())) return emptyPage();
+        Page p = om.convertValue(data, Page.class);
+        if (p == null || p.items() == null) return new Page(List.of(), p == null ? null : p.nextCursor(), p == null ? null : p.summary());
+        return p;
+    }
+
+    private Page readPage(String raw) {
         try {
-            return om.readValue(raw, Page.class);
+            Page p = om.readValue(raw, Page.class);
+            if (p == null || p.items() == null) return emptyPage();
+            return p;
         } catch (JsonProcessingException e) {
             throw new IllegalStateException(e);
         }
     }
+
+    private static Page emptyPage() {
+        return new Page(List.of(), null, null);
+    }
+
+    private record Stored(Page page, boolean logical, boolean expired) {}
 
     private String encode(Page p) {
         try {

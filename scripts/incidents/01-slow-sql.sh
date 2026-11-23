@@ -2,7 +2,7 @@
 # 复盘 01：误删索引 idx_video_created，造出慢 SQL。用慢查询日志 + EXPLAIN 定位，重建索引修复。
 source "$(dirname "$0")/lib.sh"
 EV=docs/incidents/evidence/01; rm -rf "$EV"; mkdir -p "$EV"
-reset_all
+reset_toggles
 export VUS=100 DURATION=60s
 T0=$(date +%s)
 k6run before bench/k6/01-read-hot.js

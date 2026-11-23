@@ -19,14 +19,6 @@ import java.time.Duration;
 public class LlmClient {
     public record Reply(String content, LlmUsage usage) {}
 
-    public static class UpstreamException extends IOException {
-        public final int status;
-        public UpstreamException(int status, String msg) {
-            super("upstream " + status + ": " + msg);
-            this.status = status;
-        }
-    }
-
     private final LlmProperties props;
     private final ObjectMapper om;
     private final HttpClient http = HttpClient.newBuilder()
@@ -63,7 +55,8 @@ public class LlmClient {
 
         HttpResponse<String> resp = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() / 100 != 2) {
-            throw new UpstreamException(resp.statusCode(), resp.body().length() > 200 ? resp.body().substring(0, 200) : resp.body());
+            String errBody = resp.body().length() > 200 ? resp.body().substring(0, 200) : resp.body();
+            throw new IOException("upstream " + resp.statusCode() + ": " + errBody);
         }
         JsonNode root = om.readTree(resp.body());
         String content = root.path("choices").path(0).path("message").path("content").asText("");

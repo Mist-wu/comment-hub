@@ -1,8 +1,5 @@
 server:
   port: 8000
-  tomcat:
-    threads:
-      max: 50
 spring:
   application:
     name: mock-llm
