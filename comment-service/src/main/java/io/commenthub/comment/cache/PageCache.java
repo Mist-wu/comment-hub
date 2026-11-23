@@ -173,7 +173,7 @@ public class PageCache {
         throw new CacheBusyException(key);
     }
 
-    // ---------- 逻辑过期：值里带过期时间，物理上不过期；过期后返回旧值，单线程异步重建 ----------
+    // ---------- 逻辑过期：值里带过期时间，物理 TTL 更长；过期后返回旧值，单线程异步重建 ----------
     private Page logical(String key, Supplier<Page> loader) {
         String raw = redis.opsForValue().get(key);
         if (raw == null) {
@@ -183,7 +183,7 @@ public class PageCache {
         }
         redisHit.increment();
         Stored stored = interpret(raw);
-        if (stored.logical() && stored.expired()) {
+        if (stored.expired()) {
             String lockKey = "lock:" + key;
             String token = mutex.tryLock(lockKey, Duration.ofMillis(toggles.mutexLockTtlMs));
             if (token != null) {
@@ -294,52 +294,32 @@ public class PageCache {
     private Page freshPage(String raw) {
         if (raw == null) return null;
         Stored stored = interpret(raw);
-        if (stored.logical() && stored.expired()) return null;
+        if (stored.expired()) return null;
         return stored.page();
     }
 
     /** 普通 JSON、空标记、逻辑包装（含已过期和空页）都解成带 items 的 Page。 */
     private Stored interpret(String raw) {
-        if (NULL_MARK.equals(raw)) return new Stored(emptyPage(), false, false);
-        JsonNode wrapper = logicalWrapper(raw);
-        if (wrapper != null) {
-            long expireAt = wrapper.get("e").asLong();
-            return new Stored(pageFromNode(wrapper.get("d")), true, System.currentTimeMillis() > expireAt);
-        }
-        return new Stored(readPage(raw), false, false);
-    }
-
-    /** 根上同时有 e、d，且没有 items，才是逻辑过期包装。普通 Page 的根上有 items。 */
-    private JsonNode logicalWrapper(String raw) {
-        if (raw == null || !raw.startsWith("{")) return null;
+        if (NULL_MARK.equals(raw)) return new Stored(emptyPage(), false);
         JsonNode node = readTree(raw);
-        if (node.has("e") && node.has("d") && !node.has("items")) return node;
-        return null;
-    }
-
-    private Page pageFromNode(JsonNode data) {
-        if (data == null || data.isNull()) return emptyPage();
-        if (data.isTextual() && NULL_MARK.equals(data.asText())) return emptyPage();
-        Page p = om.convertValue(data, Page.class);
-        if (p == null || p.items() == null) return new Page(List.of(), p == null ? null : p.nextCursor(), p == null ? null : p.summary());
-        return p;
-    }
-
-    private Page readPage(String raw) {
-        try {
-            Page p = om.readValue(raw, Page.class);
-            if (p == null || p.items() == null) return emptyPage();
-            return p;
-        } catch (JsonProcessingException e) {
-            throw new IllegalStateException(e);
+        boolean wrapped = node.has("e") && node.has("d") && !node.has("items");
+        boolean expired = wrapped && System.currentTimeMillis() > node.get("e").asLong();
+        JsonNode data = wrapped ? node.get("d") : node;
+        if (data.isNull() || (data.isTextual() && NULL_MARK.equals(data.asText()))) {
+            return new Stored(emptyPage(), expired);
         }
+        Page page = om.convertValue(data, Page.class);
+        if (page.items() == null) {
+            page = wrapped ? new Page(List.of(), page.nextCursor(), page.summary()) : emptyPage();
+        }
+        return new Stored(page, expired);
     }
 
     private static Page emptyPage() {
         return new Page(List.of(), null, null);
     }
 
-    private record Stored(Page page, boolean logical, boolean expired) {}
+    private record Stored(Page page, boolean expired) {}
 
     private String encode(Page p) {
         try {

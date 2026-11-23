@@ -43,10 +43,6 @@ mybatis-plus:
 hub:
   ai-gateway:
     target: ${AI_GATEWAY_TARGET:localhost:9090}
-  hot-rank:
-    videos: 100
-    comments: 1000
-    interval-ms: 60000
 
 management:
   endpoints:

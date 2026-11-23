@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""汇总 bench/results/raw/<case>/run-*.json，取 3 次的中位数，追加到 bench/results/summary.tsv。
+"""汇总 bench/results/raw/<case>/run-*.json，取 3 次的中位数，按场景更新 bench/results/summary.tsv。
 
 summary.tsv 每行：case  metric  qps  p50_ms  p99_ms  err_pct  runs
 metric 是 k6 的指标名（含 tag 子指标），例如 http_req_duration{scenario:reads}。
@@ -26,23 +26,10 @@ def med(xs):
     return statistics.median(xs) if xs else None
 
 
-# 这两个 case 的 raw 一直在仓库里。旧的按 case 追加漏了它们。
-# 全量重算（不带 case 参数）会补进 TSV。这是重算已有 raw，不是新压测。
-HISTORICAL_BACKFILL = ("hot-sort-db-noindex", "read-hot-naive-noindex")
-
-
-def series(metrics, name, tag):
-    """取带 tag 的子指标。tag 非空但系列不存在时返回 None，不用无 tag 的全程数字顶上。"""
-    key = name + tag if tag else name
-    if key in metrics:
-        return metrics[key]
-    return None
-
-
 def qps_of(run, tag):
     """全程 QPS：k6 的 rate（次数 / 整次运行秒数）。没有同 tag 的 http_reqs 时不借用总量。"""
     m = run["metrics"]
-    reqs = series(m, "http_reqs", tag)
+    reqs = m.get("http_reqs" + tag)
     if not reqs:
         return None
     if reqs.get("rate") is not None:
@@ -60,14 +47,14 @@ def scenario_qps(run, tag):
     window = windows.get(tag)
     if not window:
         return None
-    reqs = series(run["metrics"], "http_reqs", tag)
+    reqs = run["metrics"].get("http_reqs" + tag)
     if not reqs or reqs.get("count") is None:
         return None
     return reqs["count"] / window
 
 
 def err_of(run, tag):
-    failed = series(run["metrics"], "http_req_failed", tag)
+    failed = run["metrics"].get("http_req_failed" + tag)
     if failed is None:
         return None
     return (failed.get("rate") or 0) * 100
@@ -119,7 +106,6 @@ def replace_cases(existing_body, cases, new_lines):
 
 
 def main():
-    # 不带参数时扫全部 raw。HISTORICAL_BACKFILL 里的两个 case 会补进 TSV，不是新压测。
     cases = sys.argv[1:] or sorted(os.listdir(os.path.join(HERE, "results", "raw")))
     path = os.path.join(HERE, "results", "summary.tsv")
     existing = []
@@ -127,11 +113,15 @@ def main():
         with open(path) as fh:
             existing = fh.read().splitlines()[1:]
     new = []
+    pnew = []
     for c in cases:
-        for r in rows(c, load(c)):
+        runs = load(c)
+        for r in rows(c, runs):
             line = "\t".join([r[0], r[1], fmt(r[2], 0), fmt(r[3]), fmt(r[4]), fmt(r[5], 2), str(r[6])])
             new.append(line)
             print(line)
+        for r in prom_rows(c, runs):
+            pnew.append("\t".join([r[0], r[1], r[2], fmt(r[3], 3)]))
     with open(path, "w") as fh:
         fh.write("case\tmetric\tqps\tp50_ms\tp99_ms\terr_pct\truns\n")
         fh.write("\n".join(replace_cases(existing, cases, new)) + "\n")
@@ -141,10 +131,6 @@ def main():
     if os.path.exists(ppath):
         with open(ppath) as fh:
             pexisting = fh.read().splitlines()[1:]
-    pnew = []
-    for c in cases:
-        for r in prom_rows(c, load(c)):
-            pnew.append("\t".join([r[0], r[1], r[2], fmt(r[3], 3)]))
     with open(ppath, "w") as fh:
         fh.write("case\tquery\tlabels\tmedian\n")
         fh.write("\n".join(replace_cases(pexisting, cases, pnew)) + "\n")

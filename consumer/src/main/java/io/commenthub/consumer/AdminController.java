@@ -25,8 +25,7 @@ public class AdminController {
 
     @PostMapping("/toggles")
     public ConsumerToggles set(@RequestBody Map<String, Object> patch) throws Exception {
-        om.readerForUpdating(toggles).readValue(om.writeValueAsBytes(patch));
-        return toggles;
+        return om.updateValue(toggles, patch);
     }
 
     /** scripts/replay-dlt.sh 调这里 */

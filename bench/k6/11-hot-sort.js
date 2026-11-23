@@ -1,7 +1,7 @@
 // 最热排序：实时 ORDER BY like_count（不走缓存）vs 定时算好的 ZSet。MODE=DB|ZSET
 import http from 'k6/http';
 import { check } from 'k6';
-import { BASE, zipfVideo, summary, toggles, admin } from './lib/common.js';
+import { BASE, zipfVideo, summary, overrideToggles, setToggles, admin } from './lib/common.js';
 
 export const options = {
   setupTimeout: '300s',
@@ -10,8 +10,9 @@ export const options = {
 };
 
 export function setup() {
-  toggles({ hotMode: __ENV.MODE || 'ZSET', cacheEnabled: false, summaryEnabled: false });
+  const previous = overrideToggles({ hotMode: __ENV.MODE || 'ZSET', cacheEnabled: false, summaryEnabled: false });
   if ((__ENV.MODE || 'ZSET') === 'ZSET') admin(`${BASE}/admin/hot-rank/rebuild`);
+  return previous;
 }
 
 export default function () {
@@ -20,5 +21,4 @@ export default function () {
   check(http.get(`${BASE}/api/videos/${v}/comments?sort=hot`, { timeout: '60s' }), { ok: (r) => r.status === 200 });
 }
 
-export function teardown() { toggles({ hotMode: 'ZSET', cacheEnabled: true, summaryEnabled: true }); }
-export function handleSummary(d) { return summary(d); }
+export { setToggles as teardown, summary as handleSummary };

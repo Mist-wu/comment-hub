@@ -31,7 +31,7 @@ public class SummaryClient {
     }
 
     public String summaryOrNull(long videoId, long commentCount, List<String> samples) {
-        if (!toggles.summaryEnabled || commentCount < toggles.summaryMinComments) return null;
+        if (commentCount < toggles.summaryMinComments) return null;
         int deadline = toggles.summaryDeadlineMs;
         AiGatewayGrpc.AiGatewayBlockingStub s = deadline > 0 ? stub.withDeadlineAfter(deadline, TimeUnit.MILLISECONDS) : stub;
         try {

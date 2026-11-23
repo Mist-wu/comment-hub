@@ -41,7 +41,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri!~\"/actuator.*\"}[30s])) by (uri)",
+     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri=~\"/api/.*\"}[30s])) by (uri)",
      "legendFormat": "__auto"
     }
    ]
@@ -78,7 +78,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"comment-service\",uri!~\"/actuator.*\"}[30s])) by (le, uri))",
+     "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"comment-service\",uri=~\"/api/.*\"}[30s])) by (le, uri))",
      "legendFormat": "__auto"
     }
    ]
@@ -115,7 +115,7 @@
    "targets": [
     {
      "refId": "A",
-     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri!~\"/actuator.*|/admin.*\",status=~\"5..\"}[30s])) / sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri!~\"/actuator.*|/admin.*\"}[30s]))",
+     "expr": "sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri=~\"/api/.*\",status=~\"5..\"}[30s])) / sum(rate(http_server_requests_seconds_count{application=\"comment-service\",uri=~\"/api/.*\"}[30s]))",
      "legendFormat": "__auto"
     }
    ]

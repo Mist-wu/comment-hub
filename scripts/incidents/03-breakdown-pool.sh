@@ -8,10 +8,8 @@
 # 这次事故发生在修复最热排序慢 SQL（idx_video_like）之前：回源是 150 万行 filesort。
 # 为了复现当时的状态，脚本先删掉 idx_video_like，结束时再建回来。
 source "$(dirname "$0")/lib.sh"
-EV=docs/incidents/evidence/03; rm -rf "$EV"; mkdir -p "$EV"
 reset_toggles
-add_exit_hook 'my -e "ALTER TABLE comment ADD KEY idx_video_like (video_id, like_count, id, status)"'
-my -e "ALTER TABLE comment DROP INDEX idx_video_like" || true
+drop_index idx_video_like "video_id, like_count, id, status"
 export VUS=300
 
 lines() { echo $(( $(wc -l < logs/comment-service.log) + 1 )); }
@@ -22,14 +20,14 @@ phase() {  # phase <名字> <MODE> [结束后等待秒数]
   # 每秒“拿不到连接”的错误数：grep + awk 按秒聚合
   # 异常行没有时间戳，取它前面最近一条日志行的时间
   awk '/^20[0-9][0-9]-/ {ts=substr($2,1,8)} /Connection is not available/ {print ts}' "$EV/comment-service-$name.log" \
-    | sort | uniq -c > "$EV/pool-timeout-per-sec-$name.txt" || true
+    | sort | uniq -c > "$EV/pool-timeout-per-sec-$name.txt"
   printf '%-10s pool timeouts=%s  lock-wait timeouts(load directly)=%s\n' "$name" \
     "$(awk '{s+=$1} END {print s+0}' "$EV/pool-timeout-per-sec-$name.txt")" \
     "$(grep -c 'mutex wait timeout' "$EV/comment-service-$name.log" || true)" | tee -a "$EV/summary.txt"
   # 这一阶段的慢查询，按 SQL 指纹聚合（慢查询日志按结束时间记录，阶段结束时还在跑的会算到下一阶段）
   docker compose exec -T mysql sh -c 'cat /var/log/mysql/slow.log' 2>/dev/null \
     | awk -v a="$(utc_stamp "$t0")" '/^# Time: /{p=(substr($3,1,19)>=a)} p' > "$EV/slow-$name.log"
-  awk '/^# Query_time/{qt=$3; for(i=1;i<=NF;i++) if($i=="Rows_examined:") re=$(i+1); getline; while($0 ~ /^(SET|use)/) getline;
+  awk '/^# Query_time/{qt=$3; for(i=1;i<=NF;i++) if($i=="Rows_examined:") re=$(i+1); do { if (getline <= 0) exit } while ($0 ~ /^(SET|use)/);
        s=$0; gsub(/[0-9]+/,"N",s); n[s]++; t[s]+=qt; r[s]+=re}
        END{for(s in n) printf "%5d %8.1fs avg_query_time=%.2fs avg_rows_examined=%d  %s\n", n[s], t[s], t[s]/n[s], r[s]/n[s], substr(s,1,120)}' \
     "$EV/slow-$name.log" | sort -k2 -rn > "$EV/slow-top-$name.txt"
@@ -51,7 +49,7 @@ phase C-mutex-new MUTEX
 T4=$(date +%s)
 
 sleep 8
-MARKS="$T0:A 不加锁,$T1:B 旧互斥锁,$T2:A 不加锁,$T3:C 新互斥锁" chart docs/incidents/img/03-breakdown-pool.png "$T0" "$T4" "复盘 03：热点 key 过期引发击穿" \
+MARKS="$T0:A 不加锁,$T1:B 旧互斥锁,$T2:A 不加锁,$T3:C 新互斥锁" chart "$EV/03-breakdown-pool.png" "$T0" "$T4" "复盘 03：热点 key 过期引发击穿" \
   'max(hikaricp_connections_active{application="comment-service"})|连接池 active' \
   'max(hikaricp_connections_pending{application="comment-service"})|连接池 pending' \
   'sum(increase(hub_cache_db_load_total[15s]))/15|回源次数/秒' \

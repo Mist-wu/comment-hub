@@ -25,7 +25,6 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -60,8 +59,7 @@ class HotRankPagingTest {
                 .sorted(java.util.Comparator.comparing(HotRankJob::member).reversed())
                 .toList();
         assertThat(ordered).containsExactly(1000L, 100L, 99L, 7L);
-        assertThat(HotRankJob.parseMember(HotRankJob.member(99))).isEqualTo(99L);
-        assertThat(HotRankJob.parseMember("99")).isEqualTo(99L);
+        assertThat(Long.parseLong(HotRankJob.member(99))).isEqualTo(99L);
     }
 
     @Test
@@ -123,6 +121,13 @@ class HotRankPagingTest {
         when(comments.hotAfter(1L, 5L, 100L, 20)).thenReturn(List.of(comment(98, 4)));
         Page p = svc.hot(1, Cursor.hotZset(20, 1, 5, 100), 20);
         assertThat(p.items()).extracting(CommentView::id).containsExactly(98L);
+        verify(comments).hotAfter(1L, 5L, 100L, 20);
+    }
+
+    @Test
+    void zsetCursorUsesKeysetAfterSwitchToDb() {
+        toggles.hotMode = Toggles.HotMode.DB;
+        svc.hot(1, Cursor.hotZset(20, 1, 5, 100), 20);
         verify(comments).hotAfter(1L, 5L, 100L, 20);
     }
 

@@ -163,7 +163,7 @@ for m in NONE MUTEX LOGICAL; do bench/run.sh "breakdown-$(echo "$m" | tr A-Z a-z
 | TTL 不抖动 | 11,838 | 11.55 | 51.4 | 0.00 | 567 | 131 |
 | TTL + 0~30 秒抖动 | 13,029 | 12.03 | 38.8 | 0.00 | 325 | 146 |
 
-新脚本是 `bench/k6/14-avalanche.js`。预热最多 30 秒，读从第 10 秒开始，持续 90 秒。预热请求会检查 HTTP 状态。一次新运行的 summary 里有 `plannedKeys`、`warmMaxDurationSec`、`readsStartSec`、`readsDurationSec`。场景 QPS 用读阶段的请求数除以 90 秒，和全程 QPS 分开。这次没有重跑压测，所以没有新的实测数字。
+新脚本是 `bench/k6/14-avalanche.js`。预热最多 30 秒，读从第 10 秒开始，持续 90 秒。预热请求检查 HTTP 200 和非空评论页。`checks{scenario:warm}` 的成功次数可与计划 key 数对照。一次新运行的 summary 里有 `plannedKeys`、`warmMaxDurationSec`、`readsStartSec`、`readsDurationSec`。场景 QPS 用读阶段的请求数除以 90 秒，和全程 QPS 分开。这次没有重跑压测，所以没有新的实测数字。
 
 抖动把回源速率的峰值从 567/s 压到了 325/s，P99 从 51ms 降到 39ms。这组对比只描述旧脚本的观测。效果没有预期大，连接池 pending 峰值也没降。原因有两点：
 

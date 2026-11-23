@@ -29,4 +29,4 @@ export default function () {
   }
 }
 
-export function handleSummary(d) { return summary(d); }
+export { summary as handleSummary };

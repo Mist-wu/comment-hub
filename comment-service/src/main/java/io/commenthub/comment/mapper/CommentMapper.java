@@ -21,10 +21,6 @@ public interface CommentMapper extends BaseMapper<Comment> {
     List<Comment> latestAfter(@Param("videoId") long videoId, @Param("ts") LocalDateTime ts,
                               @Param("id") long id, @Param("size") int size);
 
-    @Select("SELECT " + COLS + " FROM comment WHERE video_id = #{videoId} AND status <> 3 "
-            + "ORDER BY created_at DESC, id DESC LIMIT #{size}")
-    List<Comment> latestFirst(@Param("videoId") long videoId, @Param("size") int size);
-
     /** 朴素版：LIMIT offset。offset 越大，要扫描并丢弃的行越多。 */
     @Select("SELECT " + COLS + " FROM comment WHERE video_id = #{videoId} AND status <> 3 "
             + "ORDER BY created_at DESC, id DESC LIMIT #{offset}, #{size}")

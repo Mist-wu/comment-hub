@@ -2,7 +2,7 @@
 // 每 10 秒让这个 key 过期一次。MODE=NONE|MUTEX|LOGICAL
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { BASE, summary, toggles, admin } from './lib/common.js';
+import { BASE, summary, overrideToggles, setToggles, admin } from './lib/common.js';
 import { Counter } from 'k6/metrics';
 
 const errors = new Counter('hub_errors');
@@ -16,8 +16,9 @@ export const options = {
 };
 
 export function setup() {
-  toggles({ hotMode: 'DB', cacheEnabled: true, breakdown: __ENV.MODE || 'MUTEX', localCache: false, summaryEnabled: false, cacheTtlSeconds: 300 });
+  const previous = overrideToggles({ hotMode: 'DB', cacheEnabled: true, breakdown: __ENV.MODE || 'MUTEX', localCache: false, summaryEnabled: false, cacheTtlSeconds: 300 });
   admin(`${BASE}/admin/cache/flush?prefix=cm:`);
+  return previous;
 }
 
 export function reads() {
@@ -30,5 +31,4 @@ export function expirer() {
   admin(`${BASE}/admin/cache/expire?prefix=cm:hot:1&seconds=0`);
 }
 
-export function teardown() { toggles({ hotMode: 'ZSET', breakdown: 'MUTEX', localCache: true, summaryEnabled: true }); }
-export function handleSummary(d) { return summary(d); }
+export { setToggles as teardown, summary as handleSummary };

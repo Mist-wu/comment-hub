@@ -36,9 +36,7 @@ apply_toggles() {
 wait_lag() {
   for _ in $(seq 1 300); do
     lag=$(curl -fsS 'http://localhost:9095/api/v1/query?query=sum(kafka_consumergroup_lag)' 2>/dev/null \
-          | python3 -c 'import sys,json; r=json.load(sys.stdin)["data"]["result"]; print(int(float(r[0]["value"][1])) if r else 0)' 2>/dev/null || true)
-    lag=$(printf '%s' "$lag" | tr -cd '0-9')
-    lag=${lag:-0}
+          | python3 -c 'import sys,json; r=json.load(sys.stdin)["data"]["result"]; print(max(0, int(float(r[0]["value"][1]))) if r else 0)')
     [ "$lag" -le 0 ] && return 0
     sleep 2
   done

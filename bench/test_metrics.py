@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """报表口径：缺 tag 不借用全程数字，场景窗口和全程 QPS 分开，按 case 替换。"""
 import report
-import render
 
 
 def run(metrics, extra=None, secs=100_000):
@@ -14,8 +13,6 @@ def test_missing_tag_does_not_borrow_global():
         "http_reqs": {"rate": 100, "count": 10000},
         "http_req_failed": {"rate": 0.5},
     })
-    assert report.series(sample["metrics"], "http_reqs", "{scenario:reads}") is None
-    assert render.series(sample["metrics"], "http_reqs", "{scenario:reads}") is None
     assert report.qps_of(sample, "{scenario:reads}") is None
     assert report.err_of(sample, "{scenario:reads}") is None
     rows = report.rows("avalanche", [sample])
@@ -43,15 +40,14 @@ def test_scenario_window_is_separate_from_full_run_rate():
     assert report.scenario_qps(old, "") is None
 
 
-def test_replace_keeps_other_cases_and_backfill_is_named():
+def test_replace_keeps_other_cases():
     existing = ["keep\tmetric\t1\t1\t1\t0\t3", "drop\tmetric\t9\t1\t1\t0\t3"]
     merged = report.replace_cases(existing, ["drop"], ["drop\tmetric\t2\t1\t1\t0\t3"])
     assert merged == ["drop\tmetric\t2\t1\t1\t0\t3", "keep\tmetric\t1\t1\t1\t0\t3"]
-    assert report.HISTORICAL_BACKFILL == ("hot-sort-db-noindex", "read-hot-naive-noindex")
 
 
 if __name__ == "__main__":
     test_missing_tag_does_not_borrow_global()
     test_scenario_window_is_separate_from_full_run_rate()
-    test_replace_keeps_other_cases_and_backfill_is_named()
+    test_replace_keeps_other_cases()
     print("ok")

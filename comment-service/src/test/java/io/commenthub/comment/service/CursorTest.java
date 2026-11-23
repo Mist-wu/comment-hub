@@ -14,7 +14,6 @@ class CursorTest {
 
     @Test
     void hotRoundTrip() {
-        assertThat(Cursor.parseHot(Cursor.hot(40))).isEqualTo(40);
         Cursor.HotCursor legacy = Cursor.parseHotCursor(Cursor.hot(990));
         assertThat(legacy.kind()).isEqualTo(Cursor.HotKind.LEGACY);
         assertThat(legacy.offset()).isEqualTo(990);
@@ -29,7 +28,7 @@ class CursorTest {
     @Test
     void rejectsWrongKindAndGarbage() {
         assertThatThrownBy(() -> Cursor.parseLatest(Cursor.hot(1))).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> Cursor.parseHot("!!!")).isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> Cursor.parseHot(Cursor.hot(-1))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Cursor.parseHotCursor("!!!")).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Cursor.parseHotCursor(Cursor.hot(-1))).isInstanceOf(IllegalArgumentException.class);
     }
 }

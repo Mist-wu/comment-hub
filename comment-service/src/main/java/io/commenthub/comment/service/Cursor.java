@@ -69,14 +69,6 @@ public final class Cursor {
         return new Latest(Long.parseLong(p[1]), Long.parseLong(p[2]));
     }
 
-    public static long parseHot(String c) {
-        String[] p = dec(c).split(":");
-        if (p.length != 2 || !p[0].equals("H")) throw new IllegalArgumentException("bad cursor");
-        long rank = Long.parseLong(p[1]);
-        if (rank < 0) throw new IllegalArgumentException("bad cursor");
-        return rank;
-    }
-
     private static String enc(String s) {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(s.getBytes(StandardCharsets.UTF_8));
     }

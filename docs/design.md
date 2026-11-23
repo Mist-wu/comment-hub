@@ -130,7 +130,7 @@ ALTER TABLE comment ADD KEY idx_video_like (video_id, like_count, id, status);
 |---|---|---|---|
 | 击穿 | 所有请求打 1 号视频的最热首页（回源是一次大 filesort），每 10 秒让它过期一次 | 互斥锁（`SET NX PX` + Lua 校验 token 再删），只有一个请求回源，其余等 20ms 重读；或逻辑过期，过期后返回旧值、单线程异步重建 | `PageCache.withMutex / logical` |
 | 穿透 | 一半请求查不存在的视频 ID | 缓存空值（60 秒）；或布隆过滤器在入口拦截 | `PageCache.write`、`VideoBloom` |
-| 雪崩 | 5 秒内写入 3000 个 key，TTL 都是 30 秒 | TTL 加 0~30 秒随机抖动 | `PageCache.ttlSeconds` |
+| 雪崩 | 最多用 30 秒预热 3000 个 key，基础 TTL 为 30 秒 | TTL 加 0~30 秒随机抖动 | `PageCache.ttlSeconds` |
 
 布隆过滤器只拦截，不确认：它说“不在”就一定不在；说“在”有 0.1% 的误判，误判的请求照常走缓存和数据库，结果是空页，不会出错。缓存空值对“同一个不存在的 ID 被反复查”有效，对随机 ID 无效，所以两种都做了，压测里能看到差别。
 

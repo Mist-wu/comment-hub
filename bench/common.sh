@@ -11,18 +11,19 @@ CONSUMER_DEFAULT='{"moderationFailRate":0.0,"moderationDeadlineMs":5000}'
 MOCK_DEFAULT='{"latencyMs":300,"jitterMs":200,"errorRate":0.0,"timeoutRate":0.0,"hangMs":120000,"badJsonRate":0.0}'
 
 reset_toggles() {
-  post localhost:8080/admin/toggles "$CS_DEFAULT"
-  post localhost:8081/admin/toggles "$GW_DEFAULT"
-  post localhost:8082/admin/toggles "$CONSUMER_DEFAULT"
-  post localhost:8000/admin/config "$MOCK_DEFAULT"
-  post localhost:8081/admin/breaker/reset
+  local rc=0
+  post localhost:8080/admin/toggles "$CS_DEFAULT" || rc=1
+  post localhost:8081/admin/toggles "$GW_DEFAULT" || rc=1
+  post localhost:8082/admin/toggles "$CONSUMER_DEFAULT" || rc=1
+  post localhost:8000/admin/config "$MOCK_DEFAULT" || rc=1
+  post localhost:8081/admin/breaker/reset || rc=1
+  return "$rc"
 }
 
-# 额外的退出动作（例如把演练里删掉的索引加回来）。先于 reset_toggles 执行。
-TOGGLE_RESET_HOOKS=()
+# 事故脚本删索引后设置恢复函数。
+TOGGLE_RESET_HOOK=:
 # run.sh 把 k6 放到后台再 wait，这里记下 pid。信号到来时先停掉它，恢复开关不用等它跑完。
 K6_PID=
-add_exit_hook() { TOGGLE_RESET_HOOKS+=("$1"); }
 
 # 正常结束、set -e 中途失败、INT、TERM 都回到默认开关，不把本次覆盖留在进程里。
 on_toggle_exit() {
@@ -33,21 +34,20 @@ on_toggle_exit() {
     wait "$K6_PID" 2>/dev/null || true
     K6_PID=
   fi
-  if [ "${#TOGGLE_RESET_HOOKS[@]}" -gt 0 ]; then
-    local hook
-    for hook in "${TOGGLE_RESET_HOOKS[@]}"; do
-      eval "$hook" || true
-    done
-  fi
-  reset_toggles || true
+  "$TOGGLE_RESET_HOOK" || rc=1
+  reset_toggles || rc=1
   exit "$rc"
 }
-install_toggle_reset_trap() { trap on_toggle_exit EXIT INT TERM; }
+install_toggle_reset_trap() {
+  trap on_toggle_exit EXIT
+  trap 'exit 130' INT
+  trap 'exit 143' TERM
+}
 
 # k6 在 Colima VM 里的容器中运行、直接走 compose 网络，不经过宿主机的端口转发。
 # 模型故障场景的朴素版和复盘 02 会堆积大量挂起连接，Colima 的端口转发在这种负载下两次断开过。
 k6_in_vm() {
-  colima ssh -- docker run --rm --network comment-hub_default -v "$COMMON_ROOT:$COMMON_ROOT" -w "$PWD" \
+  colima ssh -- docker run --rm --user "$(id -u):$(id -g)" --network comment-hub_default -v "$COMMON_ROOT:$COMMON_ROOT" -w "$PWD" \
     -e BASE=http://comment-service:8080 -e GATEWAY=http://ai-gateway:8081 -e MOCK=http://mock-llm:8000 \
     -e VUS="${VUS:-}" -e DURATION="${DURATION:-}" grafana/k6:2.4.0 "$@"
 }

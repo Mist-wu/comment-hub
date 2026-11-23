@@ -49,16 +49,15 @@ public class CommentQueryService {
     /** 最新排序，游标分页。只有默认大小的首页走缓存。 */
     public Page latest(long videoId, String cursor, int size) {
         if (blockedByBloom(videoId)) return empty();
-        Page p;
         if (cursor == null && size == DEFAULT_SIZE) {
-            p = cache.get(latestKey(videoId), () -> latestPage(comments.latestFirst(videoId, size), size));
+            Page p = cache.get(latestKey(videoId), () -> latestPage(comments.latestOffset(videoId, 0, size), size));
             p = overlayLikes(p);
-            if (!p.items().isEmpty()) p = p.withSummary(summaryFor(videoId, p));
-            return p;
+            if (p.items().isEmpty()) return p;
+            return p.withSummary(toggles.summaryEnabled ? summaryFor(videoId, p) : null);
         }
         List<Comment> rows;
         if (cursor == null) {
-            rows = comments.latestFirst(videoId, size);
+            rows = comments.latestOffset(videoId, 0, size);
         } else {
             Cursor.Latest c = Cursor.parseLatest(cursor);
             rows = comments.latestAfter(videoId, LocalDateTime.ofInstant(Instant.ofEpochMilli(c.createdAtMillis()), ZoneOffset.UTC), c.id(), size);
@@ -77,16 +76,13 @@ public class CommentQueryService {
     public Page hot(long videoId, String cursor, int size) {
         if (blockedByBloom(videoId)) return empty();
         Cursor.HotCursor c = cursor == null ? null : Cursor.parseHotCursor(cursor);
-        if (c != null && c.kind() == Cursor.HotKind.DB) {
-            return overlayLikes(hotKeyset(videoId, c.likeCount(), c.id(), size));
-        }
-        if (toggles.hotMode == Toggles.HotMode.ZSET) {
+        if (toggles.hotMode == Toggles.HotMode.ZSET && (c == null || c.kind() != Cursor.HotKind.DB)) {
             Page z = hotFromZset(videoId, c, size);
             if (z != null) return overlayLikes(z);
-            // 游标钉在某一版榜单上。榜单没了或换代了，用游标里的点赞数和 id 续页，不用 offset 对另一套顺序。
-            if (c != null && c.kind() == Cursor.HotKind.ZSET) {
-                return overlayLikes(hotKeyset(videoId, c.likeCount(), c.id(), size));
-            }
+        }
+        // 榜单不可用、已换代或切回 DB 时，按游标里的点赞数和 id 续页。
+        if (c != null && c.kind() != Cursor.HotKind.LEGACY) {
+            return overlayLikes(hotPage(comments.hotAfter(videoId, c.likeCount(), c.id(), size), size));
         }
         long offset = c == null ? 0 : c.offset();
         if (offset == 0 && size == DEFAULT_SIZE) {
@@ -119,7 +115,7 @@ public class CommentQueryService {
     private Page pageLegacy(long videoId, long offset, int size, boolean capped) {
         Set<String> all = redis.opsForZSet().reverseRange(HotRankJob.key(videoId), 0, -1);
         if (all == null || all.isEmpty()) return null;
-        List<Long> ids = all.stream().map(HotRankJob::parseMember).toList();
+        List<Long> ids = all.stream().map(Long::parseLong).toList();
         Map<Long, Comment> byId = loadComments(ids);
         List<Comment> sorted = byId.values().stream()
                 .sorted(Comparator.comparingInt((Comment c) -> c.getLikeCount() == null ? 0 : c.getLikeCount()).reversed()
@@ -144,7 +140,7 @@ public class CommentQueryService {
         List<Long> ids = new ArrayList<>(range.size());
         ZSetOperations.TypedTuple<String> last = null;
         for (ZSetOperations.TypedTuple<String> t : range) {
-            ids.add(HotRankJob.parseMember(t.getValue()));
+            ids.add(Long.parseLong(t.getValue()));
             last = t;
         }
         Map<Long, Comment> byId = loadComments(ids);
@@ -156,7 +152,7 @@ public class CommentQueryService {
         String next = null;
         if (last != null && last.getValue() != null) {
             long like = last.getScore() == null ? 0 : last.getScore().longValue();
-            long id = HotRankJob.parseMember(last.getValue());
+            long id = Long.parseLong(last.getValue());
             boolean moreInZset = offset + range.size() < card;
             if (moreInZset) {
                 long nextOffset = offset + range.size();
@@ -174,10 +170,6 @@ public class CommentQueryService {
             for (Comment c : comments.byIds(ids)) byId.put(c.getId(), c);
         }
         return byId;
-    }
-
-    private Page hotKeyset(long videoId, long likeCount, long id, int size) {
-        return hotPage(comments.hotAfter(videoId, likeCount, id, size), size);
     }
 
     private static Page latestPage(List<Comment> rows, int size) {

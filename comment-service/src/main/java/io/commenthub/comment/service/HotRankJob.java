@@ -43,10 +43,6 @@ public class HotRankJob {
         return String.format(Locale.ROOT, "%020d", id);
     }
 
-    public static long parseMember(String member) {
-        return Long.parseLong(member);
-    }
-
     public static boolean isPadded(String member) {
         if (member == null || member.length() != 20) return false;
         for (int i = 0; i < member.length(); i++) {
